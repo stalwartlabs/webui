@@ -26,6 +26,10 @@ export function isIdKey(key: string): boolean {
   return key === 'id' || key.endsWith('Id');
 }
 
+export function isPortKey(key: string): boolean {
+  return key === 'port' || key.endsWith('Port');
+}
+
 export type TraceEventKind = 'error' | 'span' | 'info';
 
 const ERROR_MARKERS = ['error', 'failed', 'invalid', 'reject'];
