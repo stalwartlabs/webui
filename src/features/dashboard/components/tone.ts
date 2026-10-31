@@ -54,15 +54,15 @@ const TONES: Record<Tone | 'default', ToneClasses> = {
     },
   },
   ink: {
-    surface: 'bg-ink text-ink-foreground shadow-ink',
-    badge: 'bg-ink-2 text-ink-accent',
-    muted: 'text-ink-muted',
-    track: 'bg-ink-2',
-    accentColor: 'var(--ink-accent)',
+    surface: 'bg-clay text-clay-foreground shadow-none',
+    badge: 'bg-card text-highlight-foreground',
+    muted: 'text-clay-muted',
+    track: 'bg-card',
+    accentColor: undefined,
     sentiment: {
-      good: 'bg-ink-success/15 text-ink-success',
-      bad: 'bg-ink-danger/15 text-ink-danger',
-      neutral: 'bg-ink-2 text-ink-muted',
+      good: 'bg-card text-success',
+      bad: 'bg-card text-destructive',
+      neutral: 'bg-card text-muted-foreground',
     },
   },
 };

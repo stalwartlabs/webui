@@ -44,6 +44,10 @@
   --highlight-strong: #f7d5db;
   --highlight-foreground: #bf1f45;
 
+  --clay: #ecdcc8;
+  --clay-foreground: #1c1a17;
+  --clay-muted: #6e5d4b;
+
   --ink: #1c1a17;
   --ink-2: #2a2723;
   --ink-foreground: #f3eee7;
@@ -115,6 +119,10 @@
   --highlight-strong: #45212d;
   --highlight-foreground: #ff8199;
 
+  --clay: #33291f;
+  --clay-foreground: #f2f2f3;
+  --clay-muted: #c4b5a5;
+
   --ink: #0b0b0c;
   --ink-2: #1b1b1e;
   --ink-foreground: #f2f2f3;
@@ -182,6 +190,10 @@
   --color-highlight: var(--highlight);
   --color-highlight-strong: var(--highlight-strong);
   --color-highlight-foreground: var(--highlight-foreground);
+
+  --color-clay: var(--clay);
+  --color-clay-foreground: var(--clay-foreground);
+  --color-clay-muted: var(--clay-muted);
 
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
