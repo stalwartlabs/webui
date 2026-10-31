@@ -11,11 +11,14 @@ import { Button } from '@/components/ui/button';
 import { useBlobText } from '@/data/objects';
 import { errorMessage } from '@/lib/jmapErrors';
 import { BufferedTextarea } from '@/components/forms/widgets/BufferedInputs';
+import { SievepadButton } from '@/components/forms/SievepadButton';
+import { useFormContext } from '@/components/forms/formContext';
 import type { WidgetProps } from '@/components/forms/widgets/types';
 import type { FieldTypeBlobId } from '@/types/schema';
 
-export function BlobWidget({ value, onChange, readOnly, control }: WidgetProps<FieldTypeBlobId>) {
+export function BlobWidget({ type, value, onChange, readOnly, control }: WidgetProps<FieldTypeBlobId>) {
   const { t } = useTranslation();
+  const { recordLabel } = useFormContext();
   const [edited, setEdited] = useState<string | null>(null);
   if (edited !== null && value !== edited) {
     setEdited(null);
@@ -55,11 +58,13 @@ export function BlobWidget({ value, onChange, readOnly, control }: WidgetProps<F
     );
   }
 
+  const text = edited ?? blob.data ?? '';
+
   return (
     <div className="space-y-1">
       <BufferedTextarea
         {...control}
-        value={edited ?? blob.data ?? ''}
+        value={text}
         onCommit={(text) => {
           setEdited(text);
           onChange(text);
@@ -73,6 +78,7 @@ export function BlobWidget({ value, onChange, readOnly, control }: WidgetProps<F
           {t('field.contentModified', 'Content modified (will be saved as a new blob)')}
         </p>
       )}
+      {type.format === 'sieve' && <SievepadButton scriptName={recordLabel} source={text} />}
     </div>
   );
 }

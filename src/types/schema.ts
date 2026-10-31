@@ -122,8 +122,11 @@ export interface FieldTypeEnum {
   nullable?: boolean;
 }
 
+export type BlobFormat = 'sieve';
+
 export interface FieldTypeBlobId {
   type: 'blobId';
+  format?: BlobFormat;
 }
 
 export interface FieldTypeObjectId {
