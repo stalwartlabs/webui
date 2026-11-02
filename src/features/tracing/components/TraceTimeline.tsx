@@ -106,7 +106,7 @@ function TraceEventItem({ event, anchorMs }: { event: TraceEvent; anchorMs: numb
           </div>
           <div className="shrink-0 pt-1 text-right text-xs tabular-nums">
             <time dateTime={event.timestamp} className="block text-muted-foreground">
-              {formatTime(event.timestamp, { milliseconds: true })}
+              {formatTime(event.timestamp, { seconds: true, milliseconds: /\.\d/.test(event.timestamp) })}
             </time>
             <div className="text-dim">(+{formatElapsed(offset)})</div>
           </div>

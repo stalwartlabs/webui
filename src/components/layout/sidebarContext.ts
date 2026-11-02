@@ -11,6 +11,7 @@ export const SIDEBAR_ID = 'app-sidebar';
 export interface SidebarNavContextValue {
   sectionName: string;
   pathname: string;
+  activeViewName: string | undefined;
   isVisible: (viewName: string) => boolean;
   isLocked: (viewName: string) => boolean;
   openUpsell: () => void;

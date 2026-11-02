@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSchemaStore } from '@/stores/schemaStore';
 import { formatDateTime, formatElapsed, formatNumber } from '@/lib/format';
-import { intToBase32, isIdKey } from '../format';
+import { intToBase32, isIdKey, isPortKey } from '../format';
 import { useTraceLabels } from '../hooks/useTraceLabels';
 import type { TraceKeyValue, TraceValue } from '../types';
 
@@ -80,6 +80,7 @@ function TraceValueDisplay({ keyName, value, depth }: { keyName: string; value: 
       const numeric =
         raw && typeof raw === 'object' && 'source' in raw ? (raw as { source: string }).source : (raw as number);
       if (isIdKey(keyName)) return <IdValue keyName={keyName} raw={numeric} />;
+      if (isPortKey(keyName)) return <>{String(numeric)}</>;
       return <>{formatNumber(Number(numeric))}</>;
     }
     case 'Boolean':

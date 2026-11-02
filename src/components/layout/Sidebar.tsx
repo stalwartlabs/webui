@@ -16,7 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUIStore } from '@/stores/uiStore';
 import type { Layout } from '@/types/schema';
-import { layoutNavNodes, navNodeKey, pathMatchesView, someLink, viewPath, type NavNode } from './navTree';
+import { activeViewName, layoutNavNodes, navNodeKey, someLink, viewPath, type NavNode } from './navTree';
 import { SIDEBAR_ID, SidebarNavContext, useSidebarNav } from './sidebarContext';
 import { useLayoutNavigation } from './useLayoutNavigation';
 
@@ -31,7 +31,7 @@ function NavLink({ node, depth }: { node: Extract<NavNode, { kind: 'link' }>; de
   const { t } = useTranslation();
   const nav = useSidebarNav();
   const ref = useRef<HTMLAnchorElement>(null);
-  const isActive = pathMatchesView(nav.pathname, nav.sectionName, node.viewName);
+  const isActive = node.viewName === nav.activeViewName;
 
   useEffect(() => {
     if (isActive) ref.current?.scrollIntoView?.({ block: 'nearest' });
@@ -75,9 +75,7 @@ function NavLink({ node, depth }: { node: Extract<NavNode, { kind: 'link' }>; de
 
 function NavContainer({ node, depth }: { node: Extract<NavNode, { kind: 'container' }>; depth: number }) {
   const nav = useSidebarNav();
-  const containsActive = someLink(node.children, (viewName) =>
-    pathMatchesView(nav.pathname, nav.sectionName, viewName),
-  );
+  const containsActive = someLink(node.children, (viewName) => viewName === nav.activeViewName);
   const [open, setOpen] = useState(containsActive);
   const [prevContainsActive, setPrevContainsActive] = useState(containsActive);
   if (containsActive !== prevContainsActive) {
@@ -180,9 +178,11 @@ export function Sidebar() {
   const layout = layouts.find((l) => l.name === activeSection);
   if (!layout) return null;
 
+  const nodes = layoutNavNodes(layout);
   const nav = {
     sectionName: layout.name,
     pathname,
+    activeViewName: activeViewName(nodes, pathname, layout.name),
     isVisible,
     isLocked,
     openUpsell: () => setUpsellOpen(true),
@@ -207,7 +207,7 @@ export function Sidebar() {
         <div className="flex-1 overflow-y-auto py-2.5 [scrollbar-width:thin]">
           <nav aria-label={layout.name} className="flex flex-col gap-0.5 px-2.5">
             <SidebarNavContext value={nav}>
-              <NavNodes nodes={layoutNavNodes(layout)} depth={0} />
+              <NavNodes nodes={nodes} depth={0} />
             </SidebarNavContext>
           </nav>
         </div>

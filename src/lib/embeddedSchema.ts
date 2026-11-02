@@ -157,10 +157,17 @@ export function embeddedSummary(schema: Schema, objectName: string, value: unkno
   const resolved = resolveEmbedded(schema, objectName, value);
   const result: EmbeddedSummary = { variantLabel: variantLabel(schema, objectName, value['@type']) };
 
-  const first = resolved?.form?.sections.flatMap((s) => s.fields).find((ff) => ff.name !== '@type');
-  const firstField = first ? resolved?.fields?.properties[first.name] : undefined;
-  if (first && firstField && isSummarisable(firstField.type) && !isEmptyValue(value[first.name])) {
-    result.summary = { name: first.name, value: value[first.name], type: firstField.type };
+  const candidates: NonNullable<EmbeddedSummary['summary']>[] = [];
+  for (const formField of resolved?.form?.sections.flatMap((s) => s.fields) ?? []) {
+    if (formField.name === '@type') continue;
+    const field = resolved?.fields?.properties[formField.name];
+    if (field && isSummarisable(field.type) && !isEmptyValue(value[formField.name])) {
+      candidates.push({ name: formField.name, value: value[formField.name], type: field.type });
+    }
+  }
+  const pick = candidates.find((c) => c.type?.type !== 'number') ?? candidates[0];
+  if (pick) {
+    result.summary = pick;
     return result;
   }
 

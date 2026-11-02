@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [2.0.4] - Unreleased
+## [2.0.4] - 2026-11-02
 
 ### Added
 - New WebUI design with more pizzazz:

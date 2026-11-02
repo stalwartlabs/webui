@@ -55,3 +55,14 @@ export function pathMatchesView(pathname: string, sectionName: string, viewName:
 export function someLink(nodes: NavNode[], predicate: (viewName: string) => boolean): boolean {
   return nodes.some((node) => (node.kind === 'link' ? predicate(node.viewName) : someLink(node.children, predicate)));
 }
+
+export function activeViewName(nodes: NavNode[], pathname: string, sectionName: string): string | undefined {
+  let active: string | undefined;
+  for (const node of nodes) {
+    let candidate: string | undefined;
+    if (node.kind === 'container') candidate = activeViewName(node.children, pathname, sectionName);
+    else if (pathMatchesView(pathname, sectionName, node.viewName)) candidate = node.viewName;
+    if (candidate !== undefined && (active === undefined || candidate.length > active.length)) active = candidate;
+  }
+  return active;
+}
