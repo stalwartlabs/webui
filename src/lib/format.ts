@@ -4,21 +4,16 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
-import i18next from 'i18next';
 import { SIZE_UNITS } from '@/lib/durationFormat';
+import { DEFAULT_LOCALE, useAccountStore } from '@/stores/accountStore';
 
 export type DateInput = string | number | Date;
 
-function baseLanguage(tag: string): string {
-  return tag.toLowerCase().split(/[-_]/)[0];
-}
-
 export function getFormatLocale(): string {
+  const { locale } = useAccountStore.getState();
+  if (locale && locale !== DEFAULT_LOCALE) return locale;
   const nav = typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : [];
-  const lang = i18next.resolvedLanguage || i18next.language;
-  if (!lang || lang === 'cimode') return nav[0] || 'en';
-  const wanted = baseLanguage(lang);
-  return nav.find((tag) => tag && baseLanguage(tag) === wanted) ?? lang;
+  return nav[0] || DEFAULT_LOCALE;
 }
 
 const numberFormats = new Map<string, Intl.NumberFormat>();

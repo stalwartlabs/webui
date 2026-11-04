@@ -7,6 +7,8 @@
 import { create } from 'zustand';
 import { isCommunityEdition } from '@/lib/permissions';
 
+export const DEFAULT_LOCALE = 'en-US';
+
 export type Edition = 'enterprise' | 'community' | (string & {});
 
 export interface AccountState {
@@ -22,7 +24,7 @@ export interface AccountState {
 export const useAccountStore = create<AccountState>()((set, get) => ({
   permissions: [],
   edition: 'community',
-  locale: 'en',
+  locale: DEFAULT_LOCALE,
 
   setAccountInfo: (permissions, edition, locale) => {
     set({ permissions, edition, locale });

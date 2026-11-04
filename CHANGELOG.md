@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.0.5] - Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+- Dates and numbers are formatted with the account locale, or the browser's preferred language when the account uses the default, instead of always en-US.
+
 ## [2.0.4] - 2026-11-02
 
 ### Added
