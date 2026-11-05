@@ -14,6 +14,7 @@ export interface WidgetTraits {
   labelMode: LabelMode;
   readOnlyAsValue: boolean;
   layout: RowLayout;
+  createOnly?: true;
 }
 
 export type WidgetKey =
@@ -33,6 +34,7 @@ export type WidgetKey =
   | 'object:x:Expression'
   | 'object:x:Rate'
   | 'object:x:OtpAuth'
+  | 'object:x:PasskeyRegistration'
   | 'objectList'
   | 'set'
   | 'set:enum'
@@ -65,6 +67,8 @@ export function widgetKey(type: FieldType): WidgetKey {
           return 'object:x:Rate';
         case 'x:OtpAuth':
           return 'object:x:OtpAuth';
+        case 'x:PasskeyRegistration':
+          return 'object:x:PasskeyRegistration';
         default:
           return 'object';
       }
@@ -100,6 +104,7 @@ const TRAITS: Record<WidgetKey, WidgetTraits> = {
   'object:x:Expression': { labelMode: 'group', readOnlyAsValue: false, layout: 'block' },
   'object:x:Rate': { labelMode: 'control', readOnlyAsValue: false, layout: 'side' },
   'object:x:OtpAuth': { labelMode: 'none', readOnlyAsValue: false, layout: 'block' },
+  'object:x:PasskeyRegistration': { labelMode: 'none', readOnlyAsValue: false, layout: 'block', createOnly: true },
   objectList: { labelMode: 'group', readOnlyAsValue: false, layout: 'block' },
   set: { labelMode: 'control', readOnlyAsValue: true, layout: 'side' },
   'set:enum': { labelMode: 'group', readOnlyAsValue: true, layout: 'side' },

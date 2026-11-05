@@ -23,6 +23,7 @@
     "finishSetup": "Finish setup",
     "loadingSetup": "Loading setup...",
     "nextStepBody": "restart Stalwart for the new configuration to take effect. Once restarted, sign in with the credentials above to continue administering your server.",
+    "nextStepBodyNoCredentials": "restart Stalwart for the new configuration to take effect. No administrator account was created because accounts come from the external directory. Once restarted, sign in with the recovery administrator set in STALWART_RECOVERY_ADMIN and assign an administrator role to a directory account.",
     "nextStepLabel": "Next step:",
     "noConfirm": "The server did not confirm the update.",
     "stepOf": "Step {{current}} of {{total}}",
@@ -407,6 +408,19 @@
     "setUp": "Set up TOTP",
     "statusDisabled": "Two-factor authentication is not enabled.",
     "statusEnabled": "Two-factor authentication is enabled."
+  },
+  "passkey": {
+    "alreadyRegistered": "This device already holds a passkey for your account.",
+    "create": "Create passkey",
+    "createAgain": "Create again",
+    "createFailed": "The passkey could not be created. Please try again.",
+    "createPrompt": "Confirm your password, then follow the prompt from your browser to create a passkey on this device or a security key.",
+    "currentSecretLabel": "Current password",
+    "otpRequired": "Enter your current authenticator code to create a passkey.",
+    "ready": "Passkey created. Save to add it to your account.",
+    "secretRequired": "Enter your current password to create a passkey.",
+    "unsupported": "This browser does not support passkeys.",
+    "waiting": "Waiting for your passkey"
   },
   "rate": {
     "count": "Count",

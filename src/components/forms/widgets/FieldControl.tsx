@@ -40,6 +40,12 @@ const OtpAuthField = lazy(() =>
   import('@/components/forms/widgets/OtpAuthField').then((m) => ({ default: m.OtpAuthField })),
 );
 
+const PasskeyRegistrationField = lazy(() =>
+  import('@/components/forms/widgets/PasskeyRegistrationField').then((m) => ({
+    default: m.PasskeyRegistrationField,
+  })),
+);
+
 function narrow<T extends FieldType>(props: WidgetProps): WidgetProps<T> {
   return props as WidgetProps<T>;
 }
@@ -80,6 +86,12 @@ export function FieldControl(props: WidgetProps) {
       return (
         <Suspense fallback={null}>
           <OtpAuthField {...narrow<FieldTypeObject>(props)} />
+        </Suspense>
+      );
+    case 'object:x:PasskeyRegistration':
+      return (
+        <Suspense fallback={null}>
+          <PasskeyRegistrationField {...narrow<FieldTypeObject>(props)} />
         </Suspense>
       );
     case 'objectList':

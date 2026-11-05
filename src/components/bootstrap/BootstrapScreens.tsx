@@ -104,10 +104,15 @@ export function SuccessScreen({
       <div className="rounded-xl bg-info-soft p-4 text-info">
         <p className="text-sm">
           <span className="font-medium">{t('bootstrap.nextStepLabel', 'Next step:')}</span>{' '}
-          {t(
-            'bootstrap.nextStepBody',
-            'restart Stalwart for the new configuration to take effect. Once restarted, sign in with the credentials above to continue administering your server.',
-          )}
+          {hasCredentials
+            ? t(
+                'bootstrap.nextStepBody',
+                'restart Stalwart for the new configuration to take effect. Once restarted, sign in with the credentials above to continue administering your server.',
+              )
+            : t(
+                'bootstrap.nextStepBodyNoCredentials',
+                'restart Stalwart for the new configuration to take effect. No administrator account was created because accounts come from the external directory. Once restarted, sign in with the recovery administrator set in STALWART_RECOVERY_ADMIN and assign an administrator role to a directory account.',
+              )}
         </p>
       </div>
     </div>

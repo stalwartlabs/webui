@@ -9,6 +9,7 @@ import { deepMerge, resolveForm, resolveObject, type ResolvedView } from '@/lib/
 import { SECRET_MASK } from '@/lib/jmapUtils';
 import { embeddedEntries, isRecord, resolveEmbedded } from '@/lib/embeddedSchema';
 import { isMissingValue, isRequiredField, isUnchangedSecret } from '@/lib/fieldRules';
+import { widgetTraits } from '@/components/forms/widgets/registry';
 import type { BlobUpload } from '@/services/jmap/client';
 import type { JmapSetError, ValidationError } from '@/types/jmap';
 import type { Field, FieldType, Fields, Form, FormField, Schema } from '@/types/schema';
@@ -297,7 +298,8 @@ export interface RenderableSection {
 }
 
 export function buildSections(form: Form | null, fields: Fields | null, mode: FormMode): RenderableSection[] {
-  const visible = (field: Field) => !(mode === 'create' && field.update === 'serverSet');
+  const visible = (field: Field) =>
+    mode === 'create' ? field.update !== 'serverSet' : !widgetTraits(field.type).createOnly;
   if (!form) {
     if (!fields) return [];
     const all = Object.entries(fields.properties)
