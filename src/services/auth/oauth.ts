@@ -235,7 +235,7 @@ export async function startAuthFlow(username: string, returnUrl?: string | null)
     params.set('resource', resource);
   }
 
-  window.location.href = `${authorization_endpoint}?${params.toString()}`;
+  window.location.href = appendQuery(authorization_endpoint, params);
 }
 
 export function getStoredOAuthData() {
@@ -276,6 +276,10 @@ export function buildEndSessionUrl(endSessionEndpoint: string, postLogoutRedirec
     client_id: clientId,
     post_logout_redirect_uri: postLogoutRedirectUri,
   });
-  const sep = endSessionEndpoint.includes('?') ? '&' : '?';
-  return `${endSessionEndpoint}${sep}${params.toString()}`;
+  return appendQuery(endSessionEndpoint, params);
+}
+
+function appendQuery(endpoint: string, params: URLSearchParams): string {
+  const sep = endpoint.includes('?') ? '&' : '?';
+  return `${endpoint}${sep}${params.toString()}`;
 }
