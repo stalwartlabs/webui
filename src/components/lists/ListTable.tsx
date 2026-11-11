@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
-import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import type { MouseEvent, ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Checkbox } from '@/components/ui/checkbox';
@@ -39,8 +39,26 @@ interface ListTableProps {
 
 const BODY_CELL = 'px-3.5 py-2.5 first:pl-5 last:pr-5 align-middle';
 
-const STRETCHED_LINK =
-  "font-semibold text-foreground hover:underline focus-visible:outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring";
+const ROW_LINK =
+  'rounded-sm font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+const INTERACTIVE = 'a, button, input, label, select, textarea, [role="checkbox"], [data-row-controls]';
+
+function isRowClick(event: MouseEvent<HTMLTableRowElement>): boolean {
+  const target = event.target;
+  return (
+    event.button === 0 &&
+    !event.defaultPrevented &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey &&
+    target instanceof Element &&
+    event.currentTarget.contains(target) &&
+    target.closest(INTERACTIVE) === null &&
+    window.getSelection()?.isCollapsed !== false
+  );
+}
 
 export function ListTable({
   caption,
@@ -60,6 +78,7 @@ export function ListTable({
   busy,
 }: ListTableProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const colSpan = columns.length + (selection ? 1 : 0) + (renderRowActions ? 1 : 0);
   const rows = items.flatMap((item) => {
     const id = itemId(item);
@@ -111,12 +130,20 @@ export function ListTable({
                 <tr
                   key={id}
                   className={cn(
-                    'relative border-t border-border transition-colors duration-150',
+                    'border-t border-border transition-colors duration-150',
+                    href && 'cursor-pointer',
                     selection?.isSelected(id) ? 'bg-highlight/70' : 'hover:bg-muted/55',
                   )}
+                  onClick={
+                    href
+                      ? (event) => {
+                          if (isRowClick(event)) void navigate(href);
+                        }
+                      : undefined
+                  }
                 >
                   {selection && (
-                    <td className="relative z-10 w-10 py-2.5 pl-5 pr-2 align-middle">
+                    <td data-row-controls className="w-10 py-2.5 pl-5 pr-2 align-middle">
                       <Checkbox
                         checked={selection.isSelected(id)}
                         onCheckedChange={() => selection.toggle(id)}
@@ -139,11 +166,7 @@ export function ListTable({
                       return (
                         <th key={col.name} scope="row" className={cn(BODY_CELL, 'text-left font-normal')}>
                           {href ? (
-                            <Link
-                              to={href}
-                              className={STRETCHED_LINK}
-                              aria-label={isEmptyValue(value) ? label : undefined}
-                            >
+                            <Link to={href} className={ROW_LINK} aria-label={isEmptyValue(value) ? label : undefined}>
                               {content}
                             </Link>
                           ) : (
@@ -159,7 +182,7 @@ export function ListTable({
                     );
                   })}
                   {renderRowActions && (
-                    <td className="relative z-10 py-1.5 pl-2 pr-3 text-right align-middle">
+                    <td data-row-controls className="py-1.5 pl-2 pr-3 text-right align-middle">
                       {renderRowActions(item, id, label)}
                     </td>
                   )}
