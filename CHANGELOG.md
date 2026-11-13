@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [2.0.6] - Unreleased
+## [2.0.6] - 2026-11-13
 
 ### Fixed
 - OIDC sign-in keeps a query already present in the provider's `authorization_endpoint` (for example Casdoor's `?organization=`) and appends its own parameters with `&`.
