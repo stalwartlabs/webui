@@ -12,7 +12,7 @@ import { FieldScopeProvider } from '@/components/forms/FormProvider';
 import { PanelContext, useFormContext, useInPanel } from '@/components/forms/formContext';
 import { FieldControl } from '@/components/forms/widgets/FieldControl';
 import { EmbeddedObjectEditor } from '@/components/forms/widgets/EmbeddedObjectWidget';
-import { widgetKey } from '@/components/forms/widgets/registry';
+import { widgetKey } from '@/extensions/widgets';
 import { FieldValue } from '@/components/values/FieldValue';
 import { buildNewObjectValue } from '@/lib/schemaResolver';
 import { embeddedSummary, isRecord } from '@/lib/embeddedSchema';

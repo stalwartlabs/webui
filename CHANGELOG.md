@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.0] - 2026-11-18
+
+### Added
+- Mail Rules editor under Account > Filters & Auto-Replies:
+    - Rules listed as readable sentences, with an enable switch and reordering by drag and drop, keyboard or menu.
+    - Rule builder with "all / any" conditions, exceptions and actions on compact rows.
+- Blocked senders and Safe senders pages under Account > Filters & Auto-Replies.
+- Vacation Response page with a date range picker.
+- Weekly schedule editor for working hours (Account > Calendars > Settings) and mail rule schedules.
+- Searchable time zone picker that shows UTC offsets and offers the browser's time zone.
+- Local time and local date fields, with a time input that follows the 12-hour or 24-hour clock of the user's locale.
+- Pasting several values at once into list fields, with duplicate and invalid entry reporting.
+
+### Changed
+- Map entries use the value format their key declares in the schema, so the maximum disk space quota is entered with the size field (unit selector) and shown with units.
+- Account pages follow the account selected in the top bar, including management settings.
+- Forms check required fields and minimum item counts inside nested lists before saving.
+
+### Fixed
+- Lists below their minimum number of entries are reported on the field before saving.
+- On phones, select menus no longer cut off long labels, popovers keep a margin from the screen edge, and object pickers no longer show an empty row.
+- Search boxes use a clear button that matches the theme.
+- Switching an object to another variant (for example an MTA route from Local to MX) no longer fails with "name: required": unchanged immutable fields are now sent with the new variant.
+
 ## [2.0.6] - 2026-11-13
 
 ### Fixed

@@ -18,6 +18,10 @@ export function formatPlaceholder(format: StringFormat): string | undefined {
       return 'user@example.com';
     case 'uri':
       return 'https://example.com';
+    case 'localTime':
+      return 'HH:MM';
+    case 'localDate':
+      return 'YYYY-MM-DD';
     default:
       return undefined;
   }

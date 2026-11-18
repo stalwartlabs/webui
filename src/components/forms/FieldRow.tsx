@@ -11,10 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Markdown } from '@/components/common/Markdown';
 import { HelpTooltip } from '@/components/common/HelpTooltip';
 import { FieldValue } from '@/components/values/FieldValue';
-import { SievepadButton } from '@/components/forms/SievepadButton';
 import { FieldScopeProvider } from '@/components/forms/FormProvider';
 import { FieldControl } from '@/components/forms/widgets/FieldControl';
-import { widgetTraits } from '@/components/forms/widgets/registry';
+import { resolveWidget } from '@/extensions/widgets';
 import { fieldIds, isEnterpriseLockedIn, useFieldScope, useFormContext } from '@/components/forms/formContext';
 import { requiredMarker } from '@/components/forms/formLogic';
 import { resolveObject } from '@/lib/schemaResolver';
@@ -94,7 +93,7 @@ export function FieldRow({ field, formField, value, onChange, error, readOnly: f
     referencesLocked ||
     field.update === 'serverSet' ||
     (topLevel && ctx.mode === 'edit' && field.update === 'immutable');
-  const traits = widgetTraits(ft);
+  const { traits, RowAddon } = resolveWidget(ft);
   const asValue = readOnly && traits.readOnlyAsValue;
   const marker = requiredMarker(field, readOnly);
   const describedBy =
@@ -107,19 +106,12 @@ export function FieldRow({ field, formField, value, onChange, error, readOnly: f
     'aria-required': marker === 'required' && ARIA_REQUIRED_TYPES.has(ft.type) ? true : undefined,
   };
 
+  const widgetProps = { type: ft, field, formField, value, onChange, readOnly, control, error };
   let body: ReactNode = asValue ? (
     <FieldValue schema={ctx.schema} type={ft} value={value} />
   ) : (
     <FieldScopeProvider name={formField.name} readOnly={readOnly}>
-      <FieldControl
-        type={ft}
-        field={field}
-        formField={formField}
-        value={value}
-        onChange={onChange}
-        readOnly={readOnly}
-        control={control}
-      />
+      <FieldControl {...widgetProps} />
     </FieldScopeProvider>
   );
   if (!asValue && traits.labelMode === 'group') {
@@ -134,6 +126,7 @@ export function FieldRow({ field, formField, value, onChange, error, readOnly: f
     return (
       <div data-slot="field-row" className="space-y-1.5 py-4">
         {body}
+        {RowAddon && <RowAddon {...widgetProps} />}
         <FieldError id={ids.errorId} error={error} />
       </div>
     );
@@ -165,9 +158,7 @@ export function FieldRow({ field, formField, value, onChange, error, readOnly: f
       </div>
       <div className={cn('min-w-0 space-y-1.5', layout === 'inline' && 'pt-0.5', asValue && '@xl:pt-2')}>
         <div className={cn(locked && 'opacity-60')}>{body}</div>
-        {ft.type === 'string' && ft.format === 'sieve' && (
-          <SievepadButton scriptName={ctx.recordLabel} source={typeof value === 'string' ? value : ''} />
-        )}
+        {RowAddon && <RowAddon {...widgetProps} />}
         {layout !== 'inline' && <FieldError id={ids.errorId} error={error} />}
       </div>
       {layout === 'inline' && error && (

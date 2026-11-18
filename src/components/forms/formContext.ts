@@ -32,6 +32,8 @@ export const FieldScopeContext = createContext<FieldScope>({ path: [], readOnly:
 
 export const PanelContext = createContext(false);
 
+export const EnclosingSchemaContext = createContext<string | null>(null);
+
 export function useFormContext(): FormContextValue {
   const ctx = useContext(FormContext);
   if (!ctx) throw new Error('Form widgets must be rendered inside a FormProvider');
@@ -44,6 +46,10 @@ export function useFieldScope(): FieldScope {
 
 export function useInPanel(): boolean {
   return useContext(PanelContext);
+}
+
+export function useEnclosingSchema(): string | null {
+  return useContext(EnclosingSchemaContext);
 }
 
 export function isEnterpriseLockedIn(ctx: FormContextValue, enterprise: boolean | undefined): boolean {

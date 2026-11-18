@@ -9,10 +9,22 @@ import { deepMerge, resolveForm, resolveObject, type ResolvedView } from '@/lib/
 import { SECRET_MASK } from '@/lib/jmapUtils';
 import { embeddedEntries, isRecord, resolveEmbedded } from '@/lib/embeddedSchema';
 import { isMissingValue, isRequiredField, isUnchangedSecret } from '@/lib/fieldRules';
-import { widgetTraits } from '@/components/forms/widgets/registry';
+import { parseLocalDate, parseLocalTime } from '@/lib/localDateTime';
+import { WORKING_HOURS_SLOT, isScheduleInvalid, scheduleRules } from '@/lib/weeklySchedule';
+import { widgetTraits } from '@/extensions/widgets';
 import type { BlobUpload } from '@/services/jmap/client';
 import type { JmapSetError, ValidationError } from '@/types/jmap';
-import type { Field, FieldType, Fields, Form, FormField, Schema } from '@/types/schema';
+import type {
+  Field,
+  FieldType,
+  Fields,
+  Form,
+  FormField,
+  MapValueType,
+  ScalarType,
+  Schema,
+  StringFormat,
+} from '@/types/schema';
 import type { FormMode } from '@/components/forms/formContext';
 
 export type FieldValues = Record<string, unknown>;
@@ -68,40 +80,180 @@ export function requiredMarker(field: Field, readOnly: boolean): 'required' | 'o
   return isNullable(field.type) ? 'optional' : 'required';
 }
 
+function itemCount(value: unknown): number {
+  return isRecord(value) ? Object.keys(value).length : 0;
+}
+
+function isMissingNestedValue(schema: Schema, field: Field, value: unknown): boolean {
+  if (field.update === 'serverSet') return false;
+  if (isRequiredField(field) && isMissingValue(value)) return true;
+  const { type } = field;
+  switch (type.type) {
+    case 'object':
+      return hasMissingNested(schema, type.objectName, value);
+    case 'objectList':
+      return (
+        (type.minItems != null && itemCount(value) < type.minItems) ||
+        (isRecord(value) && Object.values(value).some((item) => hasMissingNested(schema, type.objectName, item)))
+      );
+    case 'set':
+      return type.minItems != null && itemCount(value) < type.minItems;
+    default:
+      return false;
+  }
+}
+
+export function missingNestedFields(schema: Schema, objectName: string, value: unknown): string[] {
+  if (!isRecord(value)) return [];
+  const resolved = resolveEmbedded(schema, objectName, value);
+  if (!resolved) return [];
+  return embeddedEntries(resolved)
+    .filter(({ formField, field }) => isMissingNestedValue(schema, field, value[formField.name]))
+    .map(({ formField }) => formField.name);
+}
+
 function hasMissingNested(schema: Schema, objectName: string, value: unknown): boolean {
   if (!isRecord(value)) return false;
   const resolved = resolveEmbedded(schema, objectName, value);
   if (!resolved) return false;
-  for (const { formField, field } of embeddedEntries(resolved)) {
-    if (field.update === 'serverSet') continue;
-    const nested = value[formField.name];
-    if (isRequiredField(field) && isMissingValue(nested)) return true;
-    if (field.type.type === 'object' && hasMissingNested(schema, field.type.objectName, nested)) return true;
-  }
-  return false;
+  return embeddedEntries(resolved).some(({ formField, field }) =>
+    isMissingNestedValue(schema, field, value[formField.name]),
+  );
+}
+
+export function mergeFieldErrors(required: FieldErrors, custom: FieldErrors, format: FieldErrors): FieldErrors {
+  return { ...required, ...custom, ...format };
+}
+
+export interface RequiredMessages {
+  required: string;
+  minItems: (count: number) => string;
+}
+
+function tooFewItems(type: FieldType, value: unknown): number | null {
+  if (type.type !== 'set' && type.type !== 'objectList') return null;
+  return type.minItems != null && itemCount(value) < type.minItems ? type.minItems : null;
 }
 
 export function validateRequired(
   data: FieldValues,
   fields: Fields,
   mode: FormMode,
-  message: string,
+  messages: RequiredMessages | string,
   visible?: ReadonlySet<string>,
   schema?: Schema,
+): FieldErrors {
+  const required = typeof messages === 'string' ? messages : messages.required;
+  const errors: FieldErrors = {};
+  for (const [name, field] of Object.entries(fields.properties)) {
+    if (visible && !visible.has(name)) continue;
+    const value = data[name];
+    if (isRequiredField(field, mode) && isMissingValue(value)) {
+      errors[name] = required;
+      continue;
+    }
+    if (!schema || field.update === 'serverSet' || (mode === 'edit' && field.update === 'immutable')) continue;
+    const { type } = field;
+    const minItems = tooFewItems(type, value);
+    if (minItems !== null) {
+      errors[name] = typeof messages === 'string' ? messages : messages.minItems(minItems);
+    } else if ((type.type === 'object' || type.type === 'objectList') && isMissingNestedValue(schema, field, value)) {
+      errors[name] = required;
+    }
+  }
+  return errors;
+}
+
+export type ValidatedFormat = Extract<StringFormat, 'localTime' | 'localDate'> | 'weeklySchedule';
+export type FormatMessages = Record<ValidatedFormat, string>;
+
+function invalidString(format: StringFormat, value: unknown): ValidatedFormat | null {
+  if (typeof value !== 'string' || value === '') return null;
+  switch (format) {
+    case 'localTime':
+      return parseLocalTime(value) === null ? format : null;
+    case 'localDate':
+      return parseLocalDate(value) === null ? format : null;
+    default:
+      return null;
+  }
+}
+
+function invalidScalar(type: ScalarType | MapValueType, value: unknown): ValidatedFormat | null {
+  return type.type === 'string' ? invalidString(type.format, value) : null;
+}
+
+function invalidNested(schema: Schema, objectName: string, value: unknown): ValidatedFormat | null {
+  if (!isRecord(value)) return null;
+  const resolved = resolveEmbedded(schema, objectName, value);
+  if (!resolved) return null;
+  for (const { formField, field } of embeddedEntries(resolved)) {
+    if (field.update === 'serverSet') continue;
+    const invalid = invalidValue(schema, field.type, value[formField.name], resolved.schemaName);
+    if (invalid) return invalid;
+  }
+  return null;
+}
+
+function invalidValue(
+  schema: Schema,
+  type: FieldType,
+  value: unknown,
+  container: string | null,
+): ValidatedFormat | null {
+  switch (type.type) {
+    case 'string':
+      return invalidString(type.format, value);
+    case 'object':
+      return invalidNested(schema, type.objectName, value);
+    case 'objectList':
+      if (!isRecord(value)) return null;
+      if (type.objectName === WORKING_HOURS_SLOT && isScheduleInvalid(value, scheduleRules(container), type.minItems)) {
+        return 'weeklySchedule';
+      }
+      for (const item of Object.values(value)) {
+        const invalid = invalidNested(schema, type.objectName, item);
+        if (invalid) return invalid;
+      }
+      return null;
+    case 'set':
+      if (!isRecord(value)) return null;
+      for (const key of Object.keys(value)) {
+        const invalid = invalidScalar(type.class, key);
+        if (invalid) return invalid;
+      }
+      return null;
+    case 'map': {
+      if (!isRecord(value)) return null;
+      const { keyClass, valueClass } = type;
+      for (const [key, item] of Object.entries(value)) {
+        const invalid =
+          invalidScalar(keyClass, key) ??
+          (valueClass.type === 'object'
+            ? invalidNested(schema, valueClass.objectName, item)
+            : invalidScalar(valueClass, item));
+        if (invalid) return invalid;
+      }
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
+export function validateFormat(
+  data: FieldValues,
+  fields: Fields,
+  schema: Schema,
+  messages: FormatMessages,
+  visible?: ReadonlySet<string>,
 ): FieldErrors {
   const errors: FieldErrors = {};
   for (const [name, field] of Object.entries(fields.properties)) {
     if (visible && !visible.has(name)) continue;
-    if (isRequiredField(field, mode) && isMissingValue(data[name])) errors[name] = message;
-    else if (
-      schema &&
-      field.type.type === 'object' &&
-      field.update !== 'serverSet' &&
-      !(mode === 'edit' && field.update === 'immutable') &&
-      hasMissingNested(schema, field.type.objectName, data[name])
-    ) {
-      errors[name] = message;
-    }
+    if (field.update === 'serverSet') continue;
+    const invalid = invalidValue(schema, field.type, data[name], null);
+    if (invalid) errors[name] = messages[invalid];
   }
   return errors;
 }
@@ -153,7 +305,6 @@ export function buildUpdatePatch(original: FieldValues, data: FieldValues, field
       if (key === 'id') continue;
       const field = fields?.properties[key];
       if (field?.update === 'serverSet') continue;
-      if (field?.update === 'immutable' && valuesEqual(original[key], value)) continue;
       if (field && isUnchangedSecret(field, value)) continue;
       patch[key] = value === undefined ? null : withoutMaskedSecrets(value);
     }
@@ -202,9 +353,11 @@ export function mapSetError(
 ): { general: string; fieldErrors: FieldErrors } {
   const fieldErrors: FieldErrors = {};
   const extra: string[] = [];
+  const validated = new Set(error.validationErrors?.map((ve) => ve.property));
   for (const prop of error.properties ?? []) {
     const top = prop.split('/')[0];
     if (top && knownFields.has(top)) fieldErrors[top] = error.description ?? messages.invalidValue;
+    else if (!validated.has(prop)) extra.push(`${prop}: ${messages.invalidValue}`);
   }
   for (const ve of error.validationErrors ?? []) {
     if (!ve.property) continue;
@@ -226,6 +379,17 @@ export function combineForms(parent: Form | null, variant: Form | null): Form | 
     subtitle: parent?.subtitle ?? variant?.subtitle,
     sections,
   };
+}
+
+export function validatedFieldNames(
+  formNames: ReadonlySet<string>,
+  fields: Fields,
+  hidden: ReadonlySet<string>,
+): ReadonlySet<string> | undefined {
+  if (hidden.size === 0) return formNames.size > 0 ? formNames : undefined;
+  const names = new Set(formNames.size > 0 ? formNames : Object.keys(fields.properties));
+  for (const name of hidden) names.delete(name);
+  return names;
 }
 
 export function formFieldNames(...forms: (Form | null | undefined)[]): Set<string> {
@@ -297,13 +461,20 @@ export interface RenderableSection {
   fields: RenderableField[];
 }
 
-export function buildSections(form: Form | null, fields: Fields | null, mode: FormMode): RenderableSection[] {
+const NO_HIDDEN_FIELDS: ReadonlySet<string> = new Set();
+
+export function buildSections(
+  form: Form | null,
+  fields: Fields | null,
+  mode: FormMode,
+  hidden: ReadonlySet<string> = NO_HIDDEN_FIELDS,
+): RenderableSection[] {
   const visible = (field: Field) =>
     mode === 'create' ? field.update !== 'serverSet' : !widgetTraits(field.type).createOnly;
   if (!form) {
     if (!fields) return [];
     const all = Object.entries(fields.properties)
-      .filter(([, field]) => visible(field))
+      .filter(([name, field]) => !hidden.has(name) && visible(field))
       .map(([name, field]) => ({ formField: { name, label: name }, field }));
     return all.length > 0 ? [{ key: 'section-0', fields: all }] : [];
   }
@@ -315,6 +486,7 @@ export function buildSections(form: Form | null, fields: Fields | null, mode: Fo
         rendered.push({ formField: ff, field: null });
         continue;
       }
+      if (hidden.has(ff.name)) continue;
       const field = fields?.properties[ff.name];
       if (field && visible(field)) rendered.push({ formField: ff, field });
     }

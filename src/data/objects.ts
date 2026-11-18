@@ -17,14 +17,15 @@ export interface ListPage {
 
 interface QueryTuning {
   enabled?: boolean;
+  accountId?: string;
   staleTime?: number;
   refetchOnMount?: boolean | 'always';
 }
 
-export function jmapObjectQuery(objectName: string, id: string, properties?: string[]) {
+export function jmapObjectQuery(objectName: string, id: string, properties?: string[], accountId?: string) {
   return queryOptions({
-    queryKey: jmapKeys.object(objectName, id, properties),
-    queryFn: ({ signal }) => jmapGetOne(objectName, id, properties, { signal }),
+    queryKey: jmapKeys.object(objectName, id, properties, accountId),
+    queryFn: ({ signal }) => jmapGetOne(objectName, id, properties, { signal, accountId }),
     staleTime: 0,
   });
 }
@@ -36,7 +37,7 @@ export function useJmapObject(
   tuning: QueryTuning = {},
 ) {
   return useQuery({
-    ...jmapObjectQuery(objectName ?? '', id ?? '', properties),
+    ...jmapObjectQuery(objectName ?? '', id ?? '', properties, tuning.accountId),
     enabled: !!objectName && !!id && (tuning.enabled ?? true),
     staleTime: tuning.staleTime ?? 0,
     refetchOnMount: tuning.refetchOnMount ?? true,

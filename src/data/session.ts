@@ -6,14 +6,20 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { sessionKeys } from '@/data/keys';
-import { fetchAccountInfo, fetchSchema, fetchSession, type JmapSession } from '@/services/jmap/client';
-import { useAuthStore } from '@/stores/authStore';
+import {
+  fetchAccountInfo,
+  fetchSchema,
+  fetchSession,
+  MANAGEMENT_CAPABILITY,
+  type JmapSession,
+} from '@/services/jmap/client';
+import { useAuthStore, type AccountInfo } from '@/stores/authStore';
 import { useSchemaStore } from '@/stores/schemaStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { setLocale } from '@/i18n';
 
 export interface SessionInfo {
-  accounts: Record<string, { name: string; isPersonal: boolean }>;
+  accounts: Record<string, AccountInfo>;
   primaryAccountId: string;
   apiUrl: string;
   maxObjectsInGet?: number;
@@ -23,7 +29,11 @@ export interface SessionInfo {
 export function parseSession(session: JmapSession): SessionInfo {
   const accounts: SessionInfo['accounts'] = {};
   for (const [accountId, info] of Object.entries(session.accounts ?? {})) {
-    accounts[accountId] = { name: info.name, isPersonal: info.isPersonal };
+    accounts[accountId] = {
+      name: info.name,
+      isPersonal: info.isPersonal,
+      hasManagement: !!info.accountCapabilities && Object.hasOwn(info.accountCapabilities, MANAGEMENT_CAPABILITY),
+    };
   }
   const primaryAccounts = session.primaryAccounts ?? {};
   const primaryAccountId =

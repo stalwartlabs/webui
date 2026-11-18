@@ -7,6 +7,7 @@
 import type { Layout, LayoutSubItem, Schema } from '@/types/schema';
 import { resolveObject } from '@/lib/schemaResolver';
 import { isCommunityEdition, isCreateOnly } from '@/lib/permissions';
+import { CUSTOM_COMPONENT_PREFIX, matchRoutePage } from '@/extensions/pages';
 
 export type CanGet = (permissionPrefix: string) => boolean;
 export type HasPermission = (permission: string) => boolean;
@@ -16,41 +17,15 @@ interface SpecialLinkInfo {
   enterprise: boolean;
 }
 
-interface CustomComponentRule {
-  permission: string;
-  backingObject?: string;
-  enterprise?: boolean;
-}
-
-const CUSTOM_COMPONENTS: Record<string, CustomComponentRule> = {
-  LiveDelivery: { permission: 'liveDeliveryTest' },
-  // SPDX-SnippetBegin
-  // SPDX-FileCopyrightText: 2020 Stalwart Labs LLC <hello@stalw.art>
-  // SPDX-License-Identifier: LicenseRef-SEL
-  Dashboard: { permission: 'liveMetrics', backingObject: 'x:Metric' },
-  LiveTracing: { permission: 'liveTracing', enterprise: true },
-  // SPDX-SnippetEnd
-};
-
-function customComponentName(viewName: string): string | null {
-  // SPDX-SnippetBegin
-  // SPDX-FileCopyrightText: 2020 Stalwart Labs LLC <hello@stalw.art>
-  // SPDX-License-Identifier: LicenseRef-SEL
-  if (viewName.startsWith('Dashboard/')) return 'Dashboard';
-  // SPDX-SnippetEnd
-  if (viewName.startsWith('CustomComponent/')) return viewName.slice('CustomComponent/'.length);
-  return null;
-}
-
 function checkSpecialLink(
   schema: Schema,
   viewName: string,
   hasPerm?: HasPermission,
   canGet?: CanGet,
 ): SpecialLinkInfo | null {
-  const component = customComponentName(viewName);
-  if (component === null) return null;
-  const rule = CUSTOM_COMPONENTS[component];
+  const page = matchRoutePage(viewName);
+  if (!page && !viewName.startsWith(CUSTOM_COMPONENT_PREFIX)) return null;
+  const rule = page?.gate;
   if (!rule) return { visible: true, enterprise: false };
 
   const backing = rule.backingObject ? resolveObject(schema, rule.backingObject) : null;

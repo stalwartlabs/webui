@@ -4,7 +4,16 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
+import i18n from '@/i18n';
 import { SIZE_UNITS } from '@/lib/durationFormat';
+import {
+  MINUTES_PER_DAY,
+  MINUTES_PER_HOUR,
+  localDateToUtcDate,
+  parseLocalDate,
+  parseLocalTime,
+} from '@/lib/localDateTime';
+import { WEEKDAYS, type Weekday } from '@/lib/weeklySchedule';
 import { DEFAULT_LOCALE, useAccountStore } from '@/stores/accountStore';
 
 export type DateInput = string | number | Date;
@@ -154,4 +163,85 @@ export function formatTime(value: DateInput, options: { seconds?: boolean; milli
   if (options.seconds || options.milliseconds) opts.second = '2-digit';
   if (options.milliseconds) opts.fractionalSecondDigits = 3;
   return dateFormat(opts).format(d);
+}
+
+export function formatLocalTime(value: unknown): string {
+  const minutes = parseLocalTime(value);
+  if (minutes === null) return String(value);
+  if (minutes === MINUTES_PER_DAY) return i18n.t('field.endOfDay', 'End of day');
+  const utc = Date.UTC(1970, 0, 1, Math.floor(minutes / MINUTES_PER_HOUR), minutes % MINUTES_PER_HOUR);
+  return dateFormat({ timeStyle: 'short', timeZone: 'UTC' }).format(utc);
+}
+
+export function formatIntervalEnd(value: unknown): string {
+  return parseLocalTime(value) === MINUTES_PER_DAY ? i18n.t('field.midnight', 'midnight') : formatLocalTime(value);
+}
+
+export function formatLocalDate(value: unknown, options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' }): string {
+  const date = parseLocalDate(value);
+  if (!date) return String(value);
+  return dateFormat({ ...options, timeZone: 'UTC' }).format(localDateToUtcDate(date));
+}
+
+const FIRST_MONDAY_OF_EPOCH = 5;
+const ZERO_OFFSET = /^GMT([+-]00:?00)?$/;
+
+export function formatWeekday(day: Weekday, weekday: 'narrow' | 'short' | 'long' = 'long'): string {
+  const offset = WEEKDAYS.indexOf(day);
+  return dateFormat({ weekday, timeZone: 'UTC' }).format(Date.UTC(1970, 0, FIRST_MONDAY_OF_EPOCH + offset));
+}
+
+const offsetFormats = new Map<string, Intl.DateTimeFormat>();
+
+export function formatUtcOffset(timeZone: string, at: Date): string | null {
+  try {
+    let fmt = offsetFormats.get(timeZone);
+    if (!fmt) {
+      fmt = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' });
+      offsetFormats.set(timeZone, fmt);
+    }
+    const name = fmt.formatToParts(at).find((part) => part.type === 'timeZoneName')?.value;
+    if (!name) return null;
+    return ZERO_OFFSET.test(name) ? 'UTC' : name.replace(/^GMT/, 'UTC');
+  } catch {
+    return null;
+  }
+}
+
+export interface LocaleClock {
+  hour12: boolean;
+  am: string;
+  pm: string;
+  meridiemFirst: boolean;
+}
+
+function dayPeriod(parts: Intl.DateTimeFormatPart[]): string | undefined {
+  return parts.find((part) => part.type === 'dayPeriod')?.value;
+}
+
+export function localeClock(): LocaleClock {
+  const fmt = dateFormat({ hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+  const { hourCycle } = fmt.resolvedOptions();
+  const morning = fmt.formatToParts(Date.UTC(1970, 0, 1, 1));
+  const evening = fmt.formatToParts(Date.UTC(1970, 0, 1, 13));
+  const periodIndex = morning.findIndex((part) => part.type === 'dayPeriod');
+  return {
+    hour12: hourCycle === 'h11' || hourCycle === 'h12',
+    am: dayPeriod(morning) ?? 'AM',
+    pm: dayPeriod(evening) ?? 'PM',
+    meridiemFirst: periodIndex >= 0 && periodIndex < morning.findIndex((part) => part.type === 'hour'),
+  };
+}
+
+const listFormats = new Map<string, Intl.ListFormat>();
+
+export function formatList(items: readonly string[], type: 'conjunction' | 'disjunction' = 'conjunction'): string {
+  const locale = getFormatLocale();
+  const key = `${locale}|${type}`;
+  let fmt = listFormats.get(key);
+  if (!fmt) {
+    fmt = new Intl.ListFormat(locale, { style: 'long', type });
+    listFormats.set(key, fmt);
+  }
+  return fmt.format(items);
 }

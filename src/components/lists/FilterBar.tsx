@@ -92,7 +92,7 @@ export function FilterBar({ schema, filters, applied, isXPrefixed, disabled, onA
           onSubmit={handleSubmit}
           className="mx-2.5 mb-2.5 rounded-xl bg-muted p-4"
         >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filters.map((filter) => (
               <FilterField
                 key={filter.field}

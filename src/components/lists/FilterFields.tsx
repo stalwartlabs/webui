@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import { ObjectPicker } from '@/components/common/ObjectPicker';
+import { SearchInput } from '@/components/common/SearchInput';
 import { getEnum } from '@/lib/schemaResolver';
 import type { Filter, FilterDate, FilterEnum, FilterInteger, FilterObjectId, FilterText, Schema } from '@/types/schema';
 
@@ -33,7 +34,7 @@ function opField(filter: Filter): string {
 
 function LabelledField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <label htmlFor={id} className="text-[12.5px] font-semibold text-muted-foreground">
         {label}
       </label>
@@ -45,7 +46,7 @@ function LabelledField({ id, label, children }: { id: string; label: string; chi
 function GroupField({ label, children }: { label: string; children: ReactNode }) {
   const labelId = useId();
   return (
-    <div role="group" aria-labelledby={labelId} className="flex flex-col gap-1.5">
+    <div role="group" aria-labelledby={labelId} className="flex min-w-0 flex-col gap-1.5">
       <span id={labelId} className="text-[12.5px] font-semibold text-muted-foreground">
         {label}
       </span>
@@ -59,12 +60,11 @@ function TextFilter({ filter, values, onChange }: FilterFieldProps<FilterText>) 
   const id = useId();
   return (
     <LabelledField id={id} label={filter.label}>
-      <Input
+      <SearchInput
         id={id}
-        type="search"
         placeholder={t('list.filterPlaceholder', 'Search {{label}}...', { label: filter.label.toLowerCase() })}
         value={values[filter.field] ?? ''}
-        onChange={(e) => onChange(filter.field, e.target.value)}
+        onValueChange={(next) => onChange(filter.field, next)}
       />
     </LabelledField>
   );

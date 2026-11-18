@@ -30,12 +30,21 @@ export interface ObjectSearchPopoverProps {
   placeholder?: string;
 }
 
-export function ObjectFieldFrame({ disabled, children }: { disabled?: boolean; children: ReactNode }) {
+export function ObjectFieldFrame({
+  disabled,
+  single,
+  children,
+}: {
+  disabled?: boolean;
+  single?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div
       data-slot="object-field"
       className={cn(
-        'field-surface flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-lg p-1',
+        'field-surface flex min-h-9 w-full items-center gap-1.5 rounded-lg p-1',
+        single ? 'flex-nowrap' : 'flex-wrap',
         disabled && 'opacity-60',
       )}
     >
@@ -45,7 +54,11 @@ export function ObjectFieldFrame({ disabled, children }: { disabled?: boolean; c
 }
 
 const INLINE_TRIGGER =
-  'h-7 min-w-[6rem] flex-1 justify-between gap-2 rounded-md px-2 text-sm font-normal text-dim shadow-none hover:bg-transparent hover:text-foreground focus-visible:ring-0 focus-visible:ring-offset-0';
+  'h-7 flex-1 justify-between gap-2 rounded-md px-2 text-sm font-normal text-dim shadow-none hover:bg-transparent hover:text-foreground focus-visible:ring-0 focus-visible:ring-offset-0';
+
+function inlineTrigger(placeholder: string): string {
+  return cn(INLINE_TRIGGER, placeholder ? 'min-w-[6rem]' : 'min-w-8 justify-end');
+}
 
 export function ObjectSearchPopover({
   options,
@@ -74,7 +87,7 @@ export function ObjectSearchPopover({
             size={placeholder === undefined ? 'icon' : 'sm'}
             className={cn(
               'cursor-not-allowed',
-              placeholder === undefined ? 'h-8 w-8 bg-muted opacity-60' : INLINE_TRIGGER,
+              placeholder === undefined ? 'h-8 w-8 bg-muted opacity-60' : inlineTrigger(placeholder),
             )}
             aria-label={label}
             aria-disabled="true"
@@ -109,7 +122,7 @@ export function ObjectSearchPopover({
           className={
             placeholder === undefined
               ? 'h-8 w-8 bg-muted hover:bg-highlight hover:text-highlight-foreground'
-              : INLINE_TRIGGER
+              : inlineTrigger(placeholder)
           }
           aria-label={label}
           disabled={disabled}

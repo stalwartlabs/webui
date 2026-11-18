@@ -10,6 +10,7 @@ import { VariantSelect } from '@/components/forms/VariantSelect';
 import type { EmbeddedVariant } from '@/lib/embeddedSchema';
 import { cn } from '@/lib/utils';
 import type { FieldErrors, FieldValues, RenderableSection } from '@/components/forms/formLogic';
+import type { FieldOverrides } from '@/components/forms/useDynamicForm';
 
 interface VariantControl {
   variants: readonly EmbeddedVariant[];
@@ -25,6 +26,7 @@ interface FormSectionsProps {
   readOnly: boolean;
   onFieldChange: (name: string, value: unknown) => void;
   variant?: VariantControl;
+  renderers?: FieldOverrides['render'];
 }
 
 export function FormSections({
@@ -35,6 +37,7 @@ export function FormSections({
   readOnly,
   onFieldChange,
   variant,
+  renderers,
 }: FormSectionsProps) {
   return (
     <>
@@ -51,6 +54,20 @@ export function FormSections({
                   value={variant.value}
                   onChange={variant.onChange}
                   readOnly={readOnly}
+                />
+              );
+            }
+            const Render = renderers && Object.hasOwn(renderers, formField.name) ? renderers[formField.name] : null;
+            if (Render) {
+              return (
+                <Render
+                  key={formField.name}
+                  field={field}
+                  formField={formField}
+                  data={data}
+                  errors={errors}
+                  readOnly={readOnly}
+                  onFieldChange={onFieldChange}
                 />
               );
             }

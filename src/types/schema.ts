@@ -220,7 +220,9 @@ export type StringFormat =
   | 'color'
   | 'text'
   | 'html'
-  | 'sieve';
+  | 'sieve'
+  | 'localTime'
+  | 'localDate';
 
 export type NumberFormat = 'integer' | 'unsignedInteger' | 'float' | 'size' | 'duration';
 
@@ -229,6 +231,7 @@ export interface EnumVariant {
   label: string;
   explanation?: string;
   color?: string;
+  valueFormat?: NumberFormat;
 }
 
 export interface List {

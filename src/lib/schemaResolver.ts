@@ -4,7 +4,17 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
-import type { Schema, ObjectTypeObject, ObjectTypeSingleton, Fields, Form, List, EnumVariant } from '@/types/schema';
+import type {
+  Schema,
+  ObjectTypeObject,
+  ObjectTypeSingleton,
+  Fields,
+  Form,
+  List,
+  EnumVariant,
+  MapValueType,
+  ScalarType,
+} from '@/types/schema';
 
 export interface ResolvedObject {
   viewName: string;
@@ -345,6 +355,17 @@ export function getEnumVariant(
   name: string,
 ): EnumVariant | undefined {
   return schema?.enums[enumName]?.find((v) => v.name === name);
+}
+
+export function mapEntryValueType(
+  schema: Schema | null | undefined,
+  keyClass: ScalarType,
+  valueClass: MapValueType,
+  key: string,
+): MapValueType {
+  if (keyClass.type !== 'enum' || valueClass.type !== 'number') return valueClass;
+  const format = getEnumVariant(schema, keyClass.enumName, key)?.valueFormat;
+  return format ? { ...valueClass, format } : valueClass;
 }
 
 export interface ResolvedView {

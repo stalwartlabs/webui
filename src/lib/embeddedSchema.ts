@@ -15,6 +15,7 @@ export interface EmbeddedVariant {
 
 export interface ResolvedEmbedded {
   objectName: string;
+  schemaName: string | null;
   variants: EmbeddedVariant[] | null;
   variant: EmbeddedVariant | null;
   fields: Fields | null;
@@ -36,6 +37,7 @@ export function resolveEmbedded(schema: Schema, objectName: string, value: unkno
   if (entry.type === 'single') {
     return {
       objectName,
+      schemaName: entry.schemaName,
       variants: null,
       variant: null,
       fields: schema.fields[entry.schemaName] ?? null,
@@ -47,6 +49,7 @@ export function resolveEmbedded(schema: Schema, objectName: string, value: unkno
   const schemaName = variant?.schemaName;
   return {
     objectName,
+    schemaName: schemaName ?? null,
     variants: entry.variants,
     variant,
     fields: schemaName ? (schema.fields[schemaName] ?? null) : null,

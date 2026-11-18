@@ -12,17 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useResolvedView } from '@/hooks/useResolvedView';
 import { useJmapObject } from '@/data/objects';
+import type { PageProps } from '@/extensions/types';
 import { errorMessage } from '@/lib/jmapErrors';
 import { normalizeTraceEvents } from '../normalize';
 import { TraceTimeline } from './TraceTimeline';
 import { TraceSummaryCards } from './TraceSummaryCards';
 
-interface TraceDetailViewProps {
-  viewName: string;
-  objectId: string;
-}
-
-export function TraceDetailView({ viewName, objectId }: TraceDetailViewProps) {
+export function TraceDetailView({ viewName, objectId }: PageProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const resolved = useResolvedView(viewName);

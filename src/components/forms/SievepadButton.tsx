@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { toast } from '@/hooks/use-toast';
 import { dismissSievepadWarning, isSievepadWarningDismissed, openInSievepad } from '@/lib/sievepad';
+import { useFormContext } from '@/components/forms/formContext';
+import type { WidgetProps } from '@/components/forms/widgets/types';
 
 interface SievepadButtonProps {
   scriptName: string;
@@ -77,4 +79,9 @@ export function SievepadButton({ scriptName, source }: SievepadButtonProps) {
       </ConfirmDialog>
     </>
   );
+}
+
+export function SievepadRowAddon({ value }: WidgetProps) {
+  const { recordLabel } = useFormContext();
+  return <SievepadButton scriptName={recordLabel} source={typeof value === 'string' ? value : ''} />;
 }

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
-import { useEffect, useId, useState, useSyncExternalStore } from 'react';
+import { useEffect, useId, useState, useSyncExternalStore, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, Loader2, RefreshCw, Trash2 } from 'lucide-react';
@@ -19,15 +19,21 @@ import { FormProvider } from '@/components/forms/FormProvider';
 import { FormSections } from '@/components/forms/FormSections';
 import { UnsavedChangesDialog } from '@/components/forms/UnsavedChangesDialog';
 import { formFieldLabels } from '@/components/forms/formLogic';
-import { useDynamicForm, type DynamicFormModel } from '@/components/forms/useDynamicForm';
-import type { RenderableSection } from '@/components/forms/formLogic';
+import { useDynamicForm, type DynamicFormModel, type DynamicFormOptions } from '@/components/forms/useDynamicForm';
+import type { FieldValues, RenderableSection } from '@/components/forms/formLogic';
 import { cn } from '@/lib/utils';
 
 const SECTION_INDEX_MIN = 3;
 
-interface DynamicFormProps {
+export interface AfterSectionsProps {
+  data: FieldValues;
+  readOnly: boolean;
+}
+
+interface DynamicFormProps extends DynamicFormOptions {
   viewName: string;
   objectId: string | null;
+  afterSections?: ComponentType<AfterSectionsProps>;
 }
 
 function capitalize(text: string): string {
@@ -132,12 +138,19 @@ function Loading({ label }: { label: string }) {
   );
 }
 
-export function DynamicForm({ viewName, objectId }: DynamicFormProps) {
+export function DynamicForm({
+  viewName,
+  objectId,
+  accountId,
+  fieldOverrides,
+  createValues,
+  afterSections: AfterSections,
+}: DynamicFormProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const canUpdate = useCanAccess(viewName, 'Update');
   const canDestroy = useCanAccess(viewName, 'Destroy');
-  const model = useDynamicForm(viewName, objectId);
+  const model = useDynamicForm(viewName, objectId, { accountId, fieldOverrides, createValues });
   const { schema, resolved, mode, isSingleton, state, isDirty, saving, loading, loadError } = model;
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const title = useFormTitle(model);
@@ -223,12 +236,14 @@ export function DynamicForm({ viewName, objectId }: DynamicFormProps) {
               errors={state.fieldErrors}
               readOnly={readOnly}
               onFieldChange={model.setField}
+              renderers={fieldOverrides?.render}
               variant={
                 sch.type === 'multiple'
                   ? { variants: sch.variants, value: state.variant, onChange: model.setVariant }
                   : undefined
               }
             />
+            {AfterSections && <AfterSections data={state.data} readOnly={readOnly} />}
           </FormProvider>
         </div>
       </div>

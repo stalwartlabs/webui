@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
+import type { ComponentType } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { ValueRow } from '@/components/values/FieldValue';
 import { cn } from '@/lib/utils';
@@ -11,12 +12,22 @@ import { resolveForm, resolveSchema, resolveVariantForm } from '@/lib/schemaReso
 import { isEmptyValue, variantLabel } from '@/lib/embeddedSchema';
 import type { Field, Fields, Form, FormField, Schema } from '@/types/schema';
 
+export interface ViewRenderProps {
+  schema: Schema;
+  field: Field;
+  formField: FormField;
+  data: Record<string, unknown>;
+}
+
+export type ViewRenderers = Readonly<Record<string, ComponentType<ViewRenderProps>>>;
+
 export interface DynamicViewProps {
   schema: Schema;
   objectName: string;
   viewName: string;
   data: Record<string, unknown>;
   visibleFields?: Set<string>;
+  renderers?: ViewRenderers;
 }
 
 interface ViewSection {
@@ -70,7 +81,7 @@ function buildViewSections(
   return items.length > 0 ? [{ key: 'section-0', items }] : [];
 }
 
-export function DynamicView({ schema, objectName, viewName, data, visibleFields }: DynamicViewProps) {
+export function DynamicView({ schema, objectName, viewName, data, visibleFields, renderers }: DynamicViewProps) {
   const layout = resolveViewLayout(schema, objectName, viewName, data);
   if (!layout) return null;
   const sections = buildViewSections(layout, data, visibleFields);
@@ -83,16 +94,21 @@ export function DynamicView({ schema, objectName, viewName, data, visibleFields 
         <section key={section.key} className="tile @container px-5 pb-1.5 sm:px-6">
           {section.title && <h2 className="section-title pb-1 pt-5">{section.title}</h2>}
           <dl className={cn('divide-y divide-border', !section.title && 'pt-1')}>
-            {section.items.map(({ formField, field }) => (
-              <ValueRow
-                key={formField.name}
-                schema={schema}
-                label={formField.label}
-                description={field.description}
-                type={field.type}
-                value={data[formField.name]}
-              />
-            ))}
+            {section.items.map(({ formField, field }) => {
+              const Render = renderers && Object.hasOwn(renderers, formField.name) ? renderers[formField.name] : null;
+              return Render ? (
+                <Render key={formField.name} schema={schema} field={field} formField={formField} data={data} />
+              ) : (
+                <ValueRow
+                  key={formField.name}
+                  schema={schema}
+                  label={formField.label}
+                  description={field.description}
+                  type={field.type}
+                  value={data[formField.name]}
+                />
+              );
+            })}
           </dl>
         </section>
       ))}

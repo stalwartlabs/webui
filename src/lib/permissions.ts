@@ -9,25 +9,62 @@ import { resolveObject } from '@/lib/schemaResolver';
 
 export type ObjectAction = 'Get' | 'Query' | 'Create' | 'Update' | 'Destroy';
 
+const OBJECT_ACTIONS: readonly ObjectAction[] = ['Get', 'Query', 'Create', 'Update', 'Destroy'];
+
+export const PERSONAL_ONLY_OBJECTS: readonly string[] = [
+  'x:AccountPassword',
+  'x:AccountSettings',
+  'x:ApiKey',
+  'x:AppPassword',
+  'x:OAuthGrant',
+  'x:Passkey',
+];
+
 export interface PermissionCheckers {
   hasPermission: (permission: string) => boolean;
   hasObjectPermission: (permissionPrefix: string, action: ObjectAction) => boolean;
   canGet: (permissionPrefix: string) => boolean;
 }
 
-const checkersCache = new WeakMap<readonly string[], PermissionCheckers>();
+const NO_DENIED_PERMISSIONS: ReadonlySet<string> = new Set();
+const checkersCache = new WeakMap<readonly string[], WeakMap<ReadonlySet<string>, PermissionCheckers>>();
 
-export function createPermissionCheckers(permissions: readonly string[]): PermissionCheckers {
-  const cached = checkersCache.get(permissions);
+export function createPermissionCheckers(
+  permissions: readonly string[],
+  denied: ReadonlySet<string> = NO_DENIED_PERMISSIONS,
+): PermissionCheckers {
+  let byDenied = checkersCache.get(permissions);
+  if (!byDenied) {
+    byDenied = new WeakMap();
+    checkersCache.set(permissions, byDenied);
+  }
+  const cached = byDenied.get(denied);
   if (cached) return cached;
   const granted = new Set(permissions);
+  for (const permission of denied) granted.delete(permission);
   const checkers: PermissionCheckers = {
     hasPermission: (permission) => granted.has(permission),
     hasObjectPermission: (permissionPrefix, action) => granted.has(`${permissionPrefix}${action}`),
     canGet: (permissionPrefix) => granted.has(`${permissionPrefix}Get`),
   };
-  checkersCache.set(permissions, checkers);
+  byDenied.set(denied, checkers);
   return checkers;
+}
+
+const personalOnlyCache = new WeakMap<Schema, ReadonlySet<string>>();
+
+export function personalOnlyPermissions(schema: Schema): ReadonlySet<string> {
+  let denied = personalOnlyCache.get(schema);
+  if (!denied) {
+    const set = new Set<string>();
+    for (const objectName of PERSONAL_ONLY_OBJECTS) {
+      const prefix = resolveObject(schema, objectName)?.permissionPrefix;
+      if (prefix) for (const action of OBJECT_ACTIONS) set.add(`${prefix}${action}`);
+    }
+    denied = set;
+    personalOnlyCache.set(schema, denied);
+  }
+  return denied;
 }
 
 const definedPermissionsCache = new WeakMap<Schema, ReadonlySet<string>>();

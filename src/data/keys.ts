@@ -14,8 +14,8 @@ export const jmapKeys = {
   all: ['jmap'] as const,
   type: (objectName: string) => ['jmap', objectName] as const,
   objects: (objectName: string) => ['jmap', objectName, 'object'] as const,
-  object: (objectName: string, id: string, properties?: readonly string[]) =>
-    ['jmap', objectName, 'object', id, properties ? [...properties].sort() : null] as const,
+  object: (objectName: string, id: string, properties?: readonly string[], accountId?: string) =>
+    ['jmap', objectName, 'object', id, properties ? [...properties].sort() : null, accountId ?? null] as const,
   lists: (objectName: string) => ['jmap', objectName, 'list'] as const,
   list: (objectName: string, params: ListPageParams) => ['jmap', objectName, 'list', params] as const,
   allOptions: (objectName: string) => ['jmap', objectName, 'options'] as const,

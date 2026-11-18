@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, type AuthState } from '@/stores/authStore';
 import type { Edition } from '@/stores/accountStore';
 import { apiFetchJson } from '@/services/api';
 import { JmapMethodError, JmapProtocolError } from '@/services/errors';
@@ -19,9 +19,11 @@ import type {
 } from '@/types/jmap';
 import type { Schema } from '@/types/schema';
 
+export const MANAGEMENT_CAPABILITY = 'urn:stalwart:jmap';
+
 const JMAP_USING = [
   'urn:ietf:params:jmap:core',
-  'urn:stalwart:jmap',
+  MANAGEMENT_CAPABILITY,
   'urn:ietf:params:jmap:blob',
   'urn:ietf:params:jmap:mail',
   'urn:ietf:params:jmap:calendars',
@@ -61,14 +63,21 @@ export interface BlobUpload {
   type?: string;
 }
 
-export function getAccountId(objectType: string): string {
-  const { primaryAccountId, activeAccountId } = useAuthStore.getState();
-  if (objectType.startsWith('x:')) {
-    if (!primaryAccountId) throw new Error('No primary account ID available');
-    return primaryAccountId;
+export type AccountSelection = Pick<AuthState, 'accounts' | 'primaryAccountId' | 'activeAccountId'>;
+
+export function resolveAccountId(objectType: string, selection: AccountSelection): string | null {
+  const { accounts, primaryAccountId, activeAccountId } = selection;
+  if (!objectType.startsWith('x:')) return activeAccountId;
+  if (activeAccountId && Object.hasOwn(accounts, activeAccountId) && accounts[activeAccountId].hasManagement) {
+    return activeAccountId;
   }
-  if (!activeAccountId) throw new Error('No active account ID available');
-  return activeAccountId;
+  return primaryAccountId;
+}
+
+export function getAccountId(objectType: string): string {
+  const accountId = resolveAccountId(objectType, useAuthStore.getState());
+  if (!accountId) throw new Error(`No account ID available for ${objectType}`);
+  return accountId;
 }
 
 export function jmapApiPath(apiUrl: string | null): string {
@@ -300,7 +309,7 @@ export async function fetchBlobText(blobId: string, options: JmapCallOptions = {
 }
 
 export interface JmapSession {
-  accounts: Record<string, { name: string; isPersonal: boolean }>;
+  accounts: Record<string, { name: string; isPersonal: boolean; accountCapabilities?: Record<string, unknown> }>;
   primaryAccounts: Record<string, string>;
   apiUrl?: string;
   capabilities?: Record<string, Record<string, unknown>>;

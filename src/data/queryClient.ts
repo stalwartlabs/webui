@@ -5,6 +5,7 @@
  */
 
 import { QueryClient, type QueryKey } from '@tanstack/react-query';
+import { resolveAccountId, type AccountSelection } from '@/services/jmap/client';
 import { isRetryableError } from '@/services/errors';
 import { useAuthStore } from '@/stores/authStore';
 import { jmapKeys } from '@/data/keys';
@@ -16,8 +17,10 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
   return failureCount < MAX_QUERY_RETRIES && isRetryableError(error);
 }
 
-function isManagementKey(key: QueryKey): boolean {
-  return typeof key[1] === 'string' && key[1].startsWith('x:');
+function accountChanged(key: QueryKey, prev: AccountSelection, next: AccountSelection): boolean {
+  const objectType = key[1];
+  if (typeof objectType !== 'string') return true;
+  return resolveAccountId(objectType, prev) !== resolveAccountId(objectType, next);
 }
 
 export function createQueryClient(): QueryClient {
@@ -45,7 +48,10 @@ export function bindQueryClientToAuth(client: QueryClient): () => void {
       return;
     }
     if (prev.activeAccountId !== null && state.activeAccountId !== prev.activeAccountId) {
-      void client.resetQueries({ queryKey: jmapKeys.all, predicate: (query) => !isManagementKey(query.queryKey) });
+      void client.resetQueries({
+        queryKey: jmapKeys.all,
+        predicate: (query) => accountChanged(query.queryKey, prev, state),
+      });
     }
   });
 }

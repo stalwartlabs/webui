@@ -12,7 +12,8 @@ import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { HelpTooltip } from '@/components/common/HelpTooltip';
 import { formatDateTime } from '@/lib/format';
-import { getEnumVariant } from '@/lib/schemaResolver';
+import { resolveWidget } from '@/extensions/widgets';
+import { getEnumVariant, mapEntryValueType } from '@/lib/schemaResolver';
 import {
   embeddedEntries,
   embeddedSummary,
@@ -50,6 +51,8 @@ export function FieldValue({ schema, type, value, variant = 'full', className }:
 
 function renderValue(schema: Schema, type: FieldType, value: unknown, variant: ValueVariant): ReactNode {
   if (isEmptyValue(value)) return <EmptyValue variant={variant} />;
+  const { View } = resolveWidget(type);
+  if (View) return <View schema={schema} type={type} value={value} variant={variant} />;
   switch (type.type) {
     case 'string':
       return <StringValue value={value} format={type.format} variant={variant} />;
@@ -176,7 +179,7 @@ function MapValue({
           key={key}
           schema={schema}
           label={<ScalarLabel schema={schema} type={keyClass} value={key} />}
-          type={valueClass as FieldType}
+          type={mapEntryValueType(schema, keyClass, valueClass, key) as FieldType}
           value={val}
         />
       ))}

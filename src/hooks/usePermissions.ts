@@ -6,15 +6,25 @@
 
 import { useAccountStore, selectIsCommunity } from '@/stores/accountStore';
 import { useSchemaStore } from '@/stores/schemaStore';
-import { canAccessView, createPermissionCheckers, type ObjectAction, type PermissionCheckers } from '@/lib/permissions';
+import { selectActiveAccountIsPersonal, useAuthStore } from '@/stores/authStore';
+import {
+  canAccessView,
+  createPermissionCheckers,
+  personalOnlyPermissions,
+  type ObjectAction,
+  type PermissionCheckers,
+} from '@/lib/permissions';
 
 export function usePermissionCheckers(): PermissionCheckers {
   const permissions = useAccountStore((s) => s.permissions);
-  return createPermissionCheckers(permissions);
+  const schema = useSchemaStore((s) => s.schema);
+  const personal = useAuthStore(selectActiveAccountIsPersonal);
+  return createPermissionCheckers(permissions, personal || !schema ? undefined : personalOnlyPermissions(schema));
 }
 
 export function useHasObjectPermission(permissionPrefix: string | null | undefined, action: ObjectAction): boolean {
-  return useAccountStore((s) => !!permissionPrefix && s.permissions.includes(`${permissionPrefix}${action}`));
+  const { hasObjectPermission } = usePermissionCheckers();
+  return !!permissionPrefix && hasObjectPermission(permissionPrefix, action);
 }
 
 export function useCanAccess(viewName: string | null | undefined, action: ObjectAction = 'Get'): boolean {

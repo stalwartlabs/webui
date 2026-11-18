@@ -36,9 +36,12 @@ export function ObjectPicker({ schema, objectName, label, value, onChange, onCle
   const noPermissionMessage = useNoPermissionMessage(schema, objectName);
 
   return (
-    <ObjectFieldFrame disabled={!!noPermissionMessage}>
+    <ObjectFieldFrame disabled={!!noPermissionMessage} single>
       {value && (
-        <Badge variant="secondary" className="h-7 max-w-xs gap-1 pl-3 pr-1 text-[13px] font-medium">
+        <Badge
+          variant="secondary"
+          className="h-7 min-w-0 max-w-full gap-1 sm:max-w-xs pl-3 pr-1 text-[13px] font-medium"
+        >
           {labelLoading ? (
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
           ) : (

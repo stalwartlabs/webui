@@ -13,19 +13,21 @@ import { resolveObject, resolveList, getDisplayProperty } from '@/lib/schemaReso
 import { coerceLabel } from '@/lib/objectOptions';
 import { errorMessage } from '@/lib/jmapErrors';
 import { useJmapObject } from '@/data/objects';
-import { DynamicView } from './DynamicView';
+import { DynamicView, type ViewRenderers } from './DynamicView';
 
 interface DynamicViewPageProps {
   viewName: string;
   objectId: string;
+  accountId?: string;
+  renderers?: ViewRenderers;
 }
 
-export function DynamicViewPage({ viewName, objectId }: DynamicViewPageProps) {
+export function DynamicViewPage({ viewName, objectId, accountId, renderers }: DynamicViewPageProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const schema = useSchemaStore((s) => s.schema);
   const resolvedObject = schema ? resolveObject(schema, viewName) : null;
-  const query = useJmapObject(resolvedObject?.objectName, objectId);
+  const query = useJmapObject(resolvedObject?.objectName, objectId, undefined, { accountId });
   const data = query.data ?? null;
   const loading = query.isPending && query.fetchStatus !== 'idle';
   const error = !schema
@@ -87,7 +89,13 @@ export function DynamicViewPage({ viewName, objectId }: DynamicViewPageProps) {
         <h1 className="page-title min-w-0 flex-1 break-words pt-1.5">{title}</h1>
       </div>
 
-      <DynamicView schema={schema} objectName={resolved.objectName} viewName={viewName} data={data} />
+      <DynamicView
+        schema={schema}
+        objectName={resolved.objectName}
+        viewName={viewName}
+        data={data}
+        renderers={renderers}
+      />
     </div>
   );
 }

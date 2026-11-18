@@ -16,10 +16,10 @@ import { PanelContext, useFormContext, useInPanel } from '@/components/forms/for
 import { FieldControl } from '@/components/forms/widgets/FieldControl';
 import { EmbeddedObjectEditor } from '@/components/forms/widgets/EmbeddedObjectWidget';
 import { formatPlaceholder } from '@/components/forms/widgets/placeholders';
-import { widgetKey } from '@/components/forms/widgets/registry';
+import { widgetKey, widgetTraits } from '@/extensions/widgets';
 import { useNoPermissionMessage } from '@/lib/objectOptions';
 import { useDisplayName, useObjectOptions } from '@/data/objectOptions';
-import { buildNewObjectValue, getEnum, getEnumVariant } from '@/lib/schemaResolver';
+import { buildNewObjectValue, getEnum, getEnumVariant, mapEntryValueType } from '@/lib/schemaResolver';
 import { isRecord } from '@/lib/embeddedSchema';
 import { cn } from '@/lib/utils';
 import type { WidgetProps } from '@/components/forms/widgets/types';
@@ -82,7 +82,7 @@ export function MapWidget({ type, formField, value, onChange, readOnly }: Widget
     }
   };
 
-  const objectValues = valueField.type.type === 'object' && widgetKey(valueField.type) !== 'object:x:Rate';
+  const objectValues = valueField.type.type === 'object' && widgetTraits(valueField.type).layout === 'block';
   const valueLabel = formField.valueLabel ?? '';
   const removeButton = (key: string) =>
     !readOnly && (
@@ -111,7 +111,7 @@ export function MapWidget({ type, formField, value, onChange, readOnly }: Widget
         />
       ) : (
         <FieldControl
-          type={valueField.type}
+          type={mapEntryValueType(schema, type.keyClass, type.valueClass, key) as FieldType}
           field={valueField}
           formField={{ name: key, label: valueLabel }}
           value={val}

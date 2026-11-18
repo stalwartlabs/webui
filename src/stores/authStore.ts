@@ -7,12 +7,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface AccountInfo {
+export interface AccountInfo {
   name: string;
   isPersonal: boolean;
+  hasManagement: boolean;
 }
 
-interface AuthState {
+export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   tokenExpiresAt: number | null;
@@ -174,6 +175,12 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+export function selectActiveAccountIsPersonal(state: AuthState): boolean {
+  const { accounts, activeAccountId } = state;
+  if (!activeAccountId || !Object.hasOwn(accounts, activeAccountId)) return true;
+  return accounts[activeAccountId].isPersonal;
+}
 
 export function applyAccessTokenOverride(): void {
   const token = import.meta.env.VITE_ACCESS_TOKEN as string | undefined;

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSchemaStore } from '@/stores/schemaStore';
@@ -14,6 +14,7 @@ import { toast } from '@/hooks/use-toast';
 import {
   buildCreateDefaults,
   buildEmbeddedDefaults,
+  deepMerge,
   getDisplayProperty,
   resolveForm,
   resolveVariantForm,
@@ -37,21 +38,31 @@ import {
   formFieldNames,
   isOtpAuthValid,
   mapSetError,
+  mergeFieldErrors,
+  validateFormat,
   validateRequired,
+  validatedFieldNames,
   VARIANT_FIELD,
+  type FieldErrors,
   type FieldValues,
 } from '@/components/forms/formLogic';
 import { formReducer, initialFormState, isFormDirty, type FormState } from '@/components/forms/formReducer';
 import { useUnsavedChangesGuard } from '@/components/forms/useUnsavedChangesGuard';
 import type { FormMode } from '@/components/forms/formContext';
 import type { JmapSetError } from '@/types/jmap';
-import type { Fields, Form, Schema } from '@/types/schema';
+import type { Field, Fields, Form, FormField, Schema } from '@/types/schema';
 
 const CREATE_ID = 'new-0';
 const NOISY_CREATED_KEYS = new Set(['id', 'blobId']);
 
-function createDefaults(schema: Schema, view: ResolvedView, variant: string | undefined): FieldValues {
-  const data = buildCreateDefaults(schema, view.object, view.resolvedSchema, variant, view.list?.filtersStatic);
+function createDefaults(
+  schema: Schema,
+  view: ResolvedView,
+  variant: string | undefined,
+  createValues: FieldValues | undefined,
+): FieldValues {
+  const defaults = buildCreateDefaults(schema, view.object, view.resolvedSchema, variant, view.list?.filtersStatic);
+  const data = createValues ? deepMerge(defaults, createValues) : defaults;
   if (variant) data[VARIANT_FIELD] = variant;
   return data;
 }
@@ -63,10 +74,15 @@ function initialCreateVariant(view: ResolvedView): string | undefined {
   return typeof fromFilter === 'string' ? fromFilter : (resolvedSchema.variants[0]?.name ?? '');
 }
 
-function initialState(schema: Schema | null, view: ResolvedView | null, mode: FormMode): FormState {
+function initialState(
+  schema: Schema | null,
+  view: ResolvedView | null,
+  mode: FormMode,
+  createValues: FieldValues | undefined,
+): FormState {
   if (mode !== 'create' || !schema || !view) return initialFormState();
   const variant = initialCreateVariant(view);
-  return initialFormState(createDefaults(schema, view, variant), variant ?? '', view);
+  return initialFormState(createDefaults(schema, view, variant, createValues), variant ?? '', view);
 }
 
 function loadedVariant(view: ResolvedView, data: FieldValues): string {
@@ -75,7 +91,32 @@ function loadedVariant(view: ResolvedView, data: FieldValues): string {
   return typeof type === 'string' ? type : (view.resolvedSchema.variants[0]?.name ?? '');
 }
 
-export function useDynamicForm(viewName: string, objectId: string | null) {
+export interface FieldRenderProps {
+  field: Field;
+  formField: FormField;
+  data: FieldValues;
+  errors: FieldErrors;
+  readOnly: boolean;
+  onFieldChange: (name: string, value: unknown) => void;
+}
+
+export interface FieldOverrides {
+  hidden?: readonly string[];
+  render?: Readonly<Record<string, ComponentType<FieldRenderProps>>>;
+  validate?: (data: FieldValues) => FieldErrors;
+}
+
+export interface DynamicFormOptions {
+  accountId?: string;
+  fieldOverrides?: FieldOverrides;
+  createValues?: FieldValues;
+}
+
+export function useDynamicForm(
+  viewName: string,
+  objectId: string | null,
+  { accountId, fieldOverrides, createValues }: DynamicFormOptions = {},
+) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const schema = useSchemaStore((s) => s.schema);
@@ -86,14 +127,14 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
   const isSingleton = resolved?.object.objectType.type === 'singleton';
   const objectName = resolved?.object.objectName;
 
-  const [state, dispatch] = useReducer(formReducer, null, () => initialState(schema, resolved, mode));
+  const [state, dispatch] = useReducer(formReducer, null, () => initialState(schema, resolved, mode, createValues));
   const isDirty = isFormDirty(state);
 
   if (mode === 'create' && schema && resolved && state.source !== resolved) {
     const variant = initialCreateVariant(resolved);
     dispatch({
       type: 'load',
-      data: createDefaults(schema, resolved, variant),
+      data: createDefaults(schema, resolved, variant, createValues),
       variant: variant ?? '',
       source: resolved,
     });
@@ -103,7 +144,7 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
     objectName,
     mode === 'create' ? null : isSingleton ? 'singleton' : objectId,
     schema && resolved ? collectFetchProperties(schema, resolved, viewName) : ['id'],
-    { staleTime: 0, refetchOnMount: 'always' },
+    { staleTime: 0, refetchOnMount: 'always', accountId },
   );
   if (objectQuery.data && objectQuery.data !== state.source && !isDirty && resolved) {
     dispatch({
@@ -140,7 +181,8 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
     }
   }
   const form = sch?.type === 'multiple' ? combineForms(parentForm, variantForm) : variantForm;
-  const sections = buildSections(form, fields, mode);
+  const hidden = new Set(fieldOverrides?.hidden);
+  const sections = buildSections(form, fields, mode, hidden);
 
   const loading = mode === 'edit' && objectQuery.fetchStatus !== 'idle' && !objectQuery.isFetchedAfterMount;
   const loadError =
@@ -165,7 +207,9 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
   };
 
   const applySetError = (error: JmapSetError) => {
-    const { general, fieldErrors } = mapSetError(error, new Set(Object.keys(fields?.properties ?? {})), {
+    const known = new Set(Object.keys(fields?.properties ?? {}));
+    for (const name of hidden) known.delete(name);
+    const { general, fieldErrors } = mapSetError(error, known, {
       general: friendlySetError(error),
       invalidValue: t('form.invalidValue', 'Invalid value.'),
       validation: validationErrorMessage,
@@ -183,7 +227,7 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
     const { variants } = resolved.resolvedSchema;
     const defaults =
       mode === 'create'
-        ? createDefaults(schema, resolved, next)
+        ? createDefaults(schema, resolved, next, createValues)
         : buildEmbeddedDefaults(schema, resolved.object.objectName, {}, next);
     const data = switchVariantValues(
       variants.find((v) => v.name === state.variant)?.fields,
@@ -198,14 +242,33 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
   const save = async () => {
     if (!resolved || saving) return;
     if (fields) {
-      const visible = formFieldNames(parentForm, variantForm);
-      const errors = validateRequired(
-        state.data,
-        fields,
-        mode,
-        t('form.required', 'This field is required.'),
-        visible.size > 0 ? visible : undefined,
-        schema ?? undefined,
+      const visibleNames = validatedFieldNames(formFieldNames(parentForm, variantForm), fields, hidden);
+      const errors = mergeFieldErrors(
+        validateRequired(
+          state.data,
+          fields,
+          mode,
+          {
+            required: t('form.required', 'This field is required.'),
+            minItems: (count) => t('form.minItems', 'Add at least {{count}} entries.', { count }),
+          },
+          visibleNames,
+          schema ?? undefined,
+        ),
+        fieldOverrides?.validate?.(state.data) ?? {},
+        schema
+          ? validateFormat(
+              state.data,
+              fields,
+              schema,
+              {
+                localTime: t('form.invalidLocalTime', 'Enter a valid time.'),
+                localDate: t('form.invalidLocalDate', 'Enter a valid date as YYYY-MM-DD.'),
+                weeklySchedule: t('form.invalidWeeklySchedule', 'Correct the intervals in this schedule.'),
+              },
+              visibleNames,
+            )
+          : {},
       );
       if (Object.keys(errors).length > 0) {
         dispatch({
@@ -234,7 +297,7 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
           }),
           fields,
         );
-        const result = await setMutation.mutateAsync({ create: { [CREATE_ID]: payload }, blobs });
+        const result = await setMutation.mutateAsync({ create: { [CREATE_ID]: payload }, blobs, accountId });
         const created = result.created?.[CREATE_ID];
         if (created) {
           const extras: FieldValues = {};
@@ -263,7 +326,7 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
       }
       const { blobs, payload } = collectBlobUploads(patch, fields, state.original);
       const updateId = isSingleton ? 'singleton' : objectId!;
-      const result = await setMutation.mutateAsync({ update: { [updateId]: payload }, blobs });
+      const result = await setMutation.mutateAsync({ update: { [updateId]: payload }, blobs, accountId });
       if (result.updated && updateId in result.updated) {
         toast({ title: t('form.savedSuccess', 'Saved successfully'), variant: 'success' });
         dispatch({ type: 'commit' });
@@ -282,7 +345,7 @@ export function useDynamicForm(viewName: string, objectId: string | null) {
     if (!resolved || !objectId) return;
     dispatch({ type: 'setErrors', generalError: null });
     try {
-      const result = await setMutation.mutateAsync({ destroy: [objectId] });
+      const result = await setMutation.mutateAsync({ destroy: [objectId], accountId });
       if (result.destroyed?.includes(objectId)) {
         const label = resolved.list?.singularName ?? resolved.object.objectType.description;
         toast({

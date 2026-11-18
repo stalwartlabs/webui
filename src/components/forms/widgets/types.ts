@@ -23,4 +23,5 @@ export interface WidgetProps<T extends FieldType = FieldType> {
   onChange: (value: unknown) => void;
   readOnly: boolean;
   control: ControlProps;
+  error?: string;
 }

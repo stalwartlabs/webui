@@ -72,10 +72,25 @@ export function MultilineWidget(props: WidgetProps<FieldTypeString>) {
       </div>
     );
   }
-  if (type.format === 'sieve') {
-    return <BufferedTextarea {...common} rows={16} spellCheck={false} className="font-mono text-xs" />;
-  }
   return <BufferedTextarea {...common} rows={4} />;
+}
+
+export function SieveWidget(props: WidgetProps<FieldTypeString>) {
+  const { type, formField, value, readOnly, control } = props;
+  return (
+    <BufferedTextarea
+      {...control}
+      value={stringValue(value)}
+      onCommit={stringCommitter(props)}
+      disabled={readOnly}
+      placeholder={formField.placeholder}
+      minLength={type.minLength}
+      maxLength={type.maxLength}
+      rows={16}
+      spellCheck={false}
+      className="font-mono text-xs"
+    />
+  );
 }
 
 export function ColorWidget(props: WidgetProps<FieldTypeString>) {

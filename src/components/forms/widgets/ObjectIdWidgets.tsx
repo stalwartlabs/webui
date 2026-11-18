@@ -70,7 +70,7 @@ export function ObjectIdWidget({
   }
 
   return (
-    <ObjectFieldFrame disabled={!!noPermissionMessage}>
+    <ObjectFieldFrame disabled={!!noPermissionMessage} single>
       {pill}
       <ObjectSearchPopover
         control={control}

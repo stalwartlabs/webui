@@ -21,11 +21,21 @@ import type { JmapSetResponse } from '@/types/jmap';
 
 export interface SetVariables extends JmapSetOptions {
   blobs?: Record<string, BlobUpload>;
+  accountId?: string;
 }
 
 export type BulkTarget = { ids: string[] } | { query: JmapQueryOptions };
 
-export type BulkVariables = BulkTarget & ({ action: 'destroy' } | { action: 'update'; patch: JmapObject });
+export type BulkVariables = (
+  | (BulkTarget & ({ action: 'destroy' } | { action: 'update'; patch: JmapObject }))
+  | { action: 'updateEach'; patches: Record<string, JmapObject> }
+) & { accountId?: string };
+
+async function bulkIds(objectName: string, vars: BulkVariables, signal?: AbortSignal): Promise<string[]> {
+  if (vars.action === 'updateEach') return Object.keys(vars.patches);
+  if ('ids' in vars) return vars.ids;
+  return jmapQueryAll(objectName, vars.query, { accountId: vars.accountId, signal });
+}
 
 function isListOf(key: QueryKey, objectName: string): boolean {
   return key[1] === objectName && key[2] === 'list';
@@ -45,9 +55,9 @@ export async function invalidateObjectType(client: QueryClient, objectName: stri
 export function useJmapSet(objectName: string | null | undefined) {
   const client = useQueryClient();
   return useMutation<JmapSetResponse, Error, SetVariables>({
-    mutationFn: ({ blobs, ...set }) => {
+    mutationFn: ({ blobs, accountId, ...set }) => {
       if (!objectName) throw new Error('No object type to update');
-      return jmapSet(objectName, set, { blobs });
+      return jmapSet(objectName, set, { blobs, accountId });
     },
     onSettled: () => {
       if (objectName) return invalidateObjectType(client, objectName);
@@ -56,7 +66,8 @@ export function useJmapSet(objectName: string | null | undefined) {
 }
 
 export async function runBulkSet(objectName: string, vars: BulkVariables, signal?: AbortSignal): Promise<SetOutcome> {
-  const ids = 'ids' in vars ? vars.ids : await jmapQueryAll(objectName, vars.query, { signal });
+  const ids = await bulkIds(objectName, vars, signal);
+  const { accountId } = vars;
   const batchSize = Math.max(1, useAuthStore.getState().maxObjectsInSet);
   const outcome: SetOutcome = { succeeded: [], failed: {} };
   for (let offset = 0; offset < ids.length; offset += batchSize) {
@@ -65,11 +76,11 @@ export async function runBulkSet(objectName: string, vars: BulkVariables, signal
     let partial: SetOutcome;
     try {
       if (vars.action === 'destroy') {
-        partial = destroyedOutcome(await jmapSet(objectName, { destroy: batch }, { signal }));
+        partial = destroyedOutcome(await jmapSet(objectName, { destroy: batch }, { accountId, signal }));
       } else {
         const update: Record<string, JmapObject> = {};
-        for (const id of batch) update[id] = vars.patch;
-        partial = updatedOutcome(await jmapSet(objectName, { update }, { signal }));
+        for (const id of batch) update[id] = vars.action === 'updateEach' ? vars.patches[id] : vars.patch;
+        partial = updatedOutcome(await jmapSet(objectName, { update }, { accountId, signal }));
       }
     } catch (err) {
       const aborted = isAbortError(err);

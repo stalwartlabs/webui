@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FieldRow } from '@/components/forms/FieldRow';
 import { VariantSelect } from '@/components/forms/VariantSelect';
-import { PanelContext, useFormContext, useInPanel } from '@/components/forms/formContext';
+import { EnclosingSchemaContext, PanelContext, useFormContext, useInPanel } from '@/components/forms/formContext';
 import { buildEmbeddedDefaults } from '@/lib/schemaResolver';
 import { embeddedEntries, isRecord, resolveEmbedded, switchVariantValues } from '@/lib/embeddedSchema';
 import type { ControlProps, WidgetProps } from '@/components/forms/widgets/types';
@@ -83,15 +83,17 @@ export function EmbeddedObjectEditor({
         )}
         {entries.length > 0 && (
           <div className={cn('divide-y divide-border', frame === 'rule' && '[&>[data-slot=field-row]]:py-3')}>
-            {entries.map(({ formField, field }) => (
-              <FieldRow
-                key={formField.name}
-                field={field}
-                formField={formField}
-                value={obj[formField.name]}
-                onChange={(v) => onChange({ ...obj, [formField.name]: v })}
-              />
-            ))}
+            <EnclosingSchemaContext value={resolved.schemaName}>
+              {entries.map(({ formField, field }) => (
+                <FieldRow
+                  key={formField.name}
+                  field={field}
+                  formField={formField}
+                  value={obj[formField.name]}
+                  onChange={(v) => onChange({ ...obj, [formField.name]: v })}
+                />
+              ))}
+            </EnclosingSchemaContext>
           </div>
         )}
       </div>

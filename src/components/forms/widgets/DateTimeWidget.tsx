@@ -15,9 +15,9 @@ import { cn } from '@/lib/utils';
 import type { WidgetProps } from '@/components/forms/widgets/types';
 import type { FieldTypeUtcDateTime } from '@/types/schema';
 
-const Calendar = lazy(() => import('@/components/ui/calendar').then((m) => ({ default: m.Calendar })));
+export const Calendar = lazy(() => import('@/components/ui/calendar').then((m) => ({ default: m.Calendar })));
 
-function CalendarFallback() {
+export function CalendarFallback() {
   return (
     <div className="flex h-72 w-64 items-center justify-center" role="status">
       <Loader2 className="h-5 w-5 animate-spin text-brand-text" aria-hidden="true" />

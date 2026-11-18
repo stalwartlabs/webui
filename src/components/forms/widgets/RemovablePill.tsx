@@ -22,9 +22,11 @@ export function RemovablePill({ label, onRemove, removeDisabled, children }: Rem
   return (
     <Badge
       variant="secondary"
-      className={cn('h-7 max-w-full gap-1 text-[13px] font-medium', onRemove ? 'pl-3 pr-1' : 'px-3')}
+      className={cn('h-7 min-w-0 max-w-full gap-1 text-[13px] font-medium', onRemove ? 'pl-3 pr-1' : 'px-3')}
     >
-      {children ?? label}
+      <span className="truncate" title={label}>
+        {children ?? label}
+      </span>
       {onRemove && (
         <button
           type="button"
