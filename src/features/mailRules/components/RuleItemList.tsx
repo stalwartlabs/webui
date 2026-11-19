@@ -44,6 +44,7 @@ interface RuleItemListProps {
   itemLabel: (n: number) => string;
   addLabel: string;
   disabledVariants?: ReadonlyMap<string, string>;
+  itemNote?: (item: Record<string, unknown>) => string | undefined;
 }
 
 interface RuleItemProps {
@@ -56,6 +57,7 @@ interface RuleItemProps {
   readOnly: boolean;
   invalid: boolean;
   disabledVariants?: ReadonlyMap<string, string>;
+  note?: string;
 }
 
 function RuleItem({
@@ -68,6 +70,7 @@ function RuleItem({
   readOnly,
   invalid,
   disabledVariants,
+  note,
 }: RuleItemProps) {
   const { t } = useTranslation();
   const { schema, idPrefix, mode, baseline } = useFormContext();
@@ -195,6 +198,7 @@ function RuleItem({
           />
         </div>
       )}
+      {note && <p className="mt-1.5 text-[12.5px] text-muted-foreground">{note}</p>}
       {block.length > 0 && (
         <FieldScopeProvider name={itemKey} readOnly={readOnly}>
           <EnclosingSchemaContext value={resolved.schemaName}>
@@ -230,6 +234,7 @@ export function RuleItemList({
   itemLabel,
   addLabel,
   disabledVariants,
+  itemNote,
 }: RuleItemListProps) {
   const { schema } = useFormContext();
   const entries = listEntries(value);
@@ -251,6 +256,7 @@ export function RuleItemList({
               readOnly={readOnly}
               invalid={invalid}
               disabledVariants={disabledVariants}
+              note={itemNote?.(item)}
             />
           ))}
         </ol>

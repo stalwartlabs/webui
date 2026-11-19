@@ -524,13 +524,23 @@
       "noActions": "do nothing",
       "then": "then {{actions}}",
       "thenStop": "then {{actions}} and stop processing more rules",
-      "sentence": "{{when}}, {{then}}."
+      "sentence": "{{when}}, {{then}}.",
+      "sizeRange": "{{min}} to {{max}}",
+      "sizeAtLeast": "at least {{size}}",
+      "sizeAtMost": "at most {{size}}",
+      "replyEveryMessage": "{{subject}}, to every message",
+      "thenOnlyStop": "then stop processing more rules",
+      "whileAway": "While the vacation response is in effect: {{sentence}}",
+      "replyToEveryMessage": "{{label}} to every message"
     },
     "issue": {
       "rejectNotAlone": "A rule that rejects mail cannot have other actions.",
       "rejectNeedsAuthentication": "A rule that rejects mail must match all conditions and require an authenticated sender.",
       "forwardingNotAllowed": "Your account is not allowed to forward mail, so this rule cannot be saved while it is enabled.",
-      "scheduleTooManySlots": "Adjacent schedule conditions are combined into one, which can have at most {{max}} time slots."
+      "scheduleTooManySlots": "Adjacent schedule conditions are combined into one, which can have at most {{max}} time slots.",
+      "sizeRangeEmpty": "A size range needs a smallest size, a largest size or both.",
+      "sizeRangeInverted": "The smallest size of a size range cannot be above its largest size.",
+      "sizeInvalid": "A size must be at least 1 KB and at most {{max}}."
     },
     "loadFailed": "Failed to load the mail rules.",
     "enableRule": "Enable {{name}}",
@@ -578,8 +588,10 @@
       "conditions": "Conditions",
       "rejectNotAlone": "Reject must be the only action.",
       "rejectStops": "A rule that rejects mail always stops processing more rules.",
-      "actionRequired": "Add at least one action.",
-      "missingFields": "Fill in {{fields}}."
+      "actionRequired": "Add at least one action, or stop processing more rules.",
+      "missingFields": "Fill in {{fields}}.",
+      "replyEveryMessage": "With 0 days between replies, every message gets a reply.",
+      "onlyStop": "Without actions, a matching message only stops later rules from running."
     },
     "removeItem": "Remove {{label}}"
   },

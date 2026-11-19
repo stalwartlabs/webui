@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Mail Rules editor: size ranges, rules that apply only while the vacation response is in effect, stop-only rules, and replies sent to every message.
+
 ## [2.1.0] - 2026-11-18
 
 ### Added

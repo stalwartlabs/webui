@@ -29,14 +29,23 @@ export interface CustomRuleBody {
   exceptions: Record<string, unknown>[];
   actions: Record<string, unknown>[];
   stopProcessing: boolean;
+  onlyWhenAway: boolean;
   timeZone: string | null;
 }
 
 export type RuleIssue =
-  'rejectNotAlone' | 'rejectNeedsAuthentication' | 'forwardingNotAllowed' | 'scheduleTooManySlots';
+  | 'rejectNotAlone'
+  | 'rejectNeedsAuthentication'
+  | 'forwardingNotAllowed'
+  | 'scheduleTooManySlots'
+  | 'sizeInvalid'
+  | 'sizeRangeEmpty'
+  | 'sizeRangeInverted';
 
 export const MAX_SCHEDULE_SLOTS = 14;
+export const MAX_SIZE_KB = 2 ** 32;
 const SCHEDULE_CONDITION = 'Schedule';
+const REPLY_ACTION = 'Reply';
 export const REJECT_ACTION = 'Reject';
 
 export function variantType(value: unknown): string | null {
@@ -156,6 +165,7 @@ export function parseCustomBody(body: Record<string, unknown>): CustomRuleBody {
     exceptions: list(body.exceptions),
     actions: list(body.actions),
     stopProcessing: body.stopProcessing === true,
+    onlyWhenAway: body.onlyWhenAway === true,
     timeZone: typeof body.timeZone === 'string' && body.timeZone !== '' ? body.timeZone : null,
   };
 }
@@ -179,6 +189,39 @@ export function mergedScheduleOverflow(items: readonly Record<string, unknown>[]
     if (run > MAX_SCHEDULE_SLOTS) return true;
   }
   return false;
+}
+
+function kilobytes(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function isSizeOutOfRange(value: number | null): boolean {
+  return value !== null && (value < 1 || value > MAX_SIZE_KB);
+}
+
+export function sizeIssue(condition: Record<string, unknown>): RuleIssue | null {
+  switch (variantType(condition)) {
+    case 'SizeOver':
+    case 'SizeUnder':
+      return isSizeOutOfRange(kilobytes(condition.kilobytes)) ? 'sizeInvalid' : null;
+    case 'SizeBetween': {
+      const min = kilobytes(condition.minKilobytes);
+      const max = kilobytes(condition.maxKilobytes);
+      if (isSizeOutOfRange(min) || isSizeOutOfRange(max)) return 'sizeInvalid';
+      if (min === null && max === null) return 'sizeRangeEmpty';
+      return min !== null && max !== null && min > max ? 'sizeRangeInverted' : null;
+    }
+    default:
+      return null;
+  }
+}
+
+export function isEveryMessageReply(action: Record<string, unknown>): boolean {
+  return variantType(action) === REPLY_ACTION && action.days === 0;
+}
+
+export function needsAction(custom: CustomRuleBody): boolean {
+  return custom.actions.length === 0 && !custom.stopProcessing;
 }
 
 export function hasRejectAction(custom: CustomRuleBody): boolean {
@@ -216,6 +259,12 @@ export function ruleIssues(
   }
   if (mergedScheduleOverflow(custom.exceptions) || (!custom.matchAll && mergedScheduleOverflow(custom.conditions))) {
     issues.push('scheduleTooManySlots');
+  }
+  for (const items of [custom.conditions, custom.exceptions]) {
+    for (const condition of items) {
+      const issue = sizeIssue(condition);
+      if (issue && !issues.includes(issue)) issues.push(issue);
+    }
   }
   if (rule.isEnabled && redirectTargets(custom) > 0 && !canForward(checkers)) {
     issues.push('forwardingNotAllowed');

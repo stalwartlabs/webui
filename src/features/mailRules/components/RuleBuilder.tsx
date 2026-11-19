@@ -23,6 +23,7 @@ import { mailboxNameResolver } from '../mailboxes';
 import {
   hasRejectAction,
   hasScheduleCondition,
+  isEveryMessageReply,
   isRejectAllowed,
   MAIL_RULE_ACTION_OBJECT,
   MAIL_RULE_CONDITION_OBJECT,
@@ -33,10 +34,10 @@ import {
   type RuleIssue,
 } from '../model';
 import { useMailboxOptions } from '../queries';
-import { ruleIssueMessage, ruleSentence, summarizeCustomRule } from '../summary';
+import { emptyActionsError, ruleIssueMessage, ruleSentence, summarizeCustomRule } from '../summary';
 import { RuleItemList } from './RuleItemList';
 
-const TRAILING_FIELDS = new Set(['stopProcessing', 'timeZone']);
+const TRAILING_FIELDS = new Set(['stopProcessing', 'onlyWhenAway', 'timeZone']);
 const RULE_ERROR_FIELDS = ['matchAll', 'conditions', 'exceptions'] as const;
 const STOP_PROCESSING = 'stopProcessing';
 const TOGGLE_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
@@ -152,11 +153,15 @@ export function RuleBuilderRow({ data: body, errors, readOnly, onFieldChange: se
   const exceptionsId = `${fieldIds(idPrefix, ['exceptions']).inputId}-list`;
   const actionsErrorId = fieldIds(idPrefix, ['actions']).errorId;
   const ruleErrorField = RULE_ERROR_FIELDS.find((name) => errorOf(name));
-  const actionsError =
-    errors.actions &&
-    (custom.actions.length === 0
-      ? t('mailRules.builder.actionRequired', 'Add at least one action.')
-      : errorOf('actions'));
+  const actionsError = !errors.actions
+    ? undefined
+    : custom.actions.length > 0
+      ? errorOf('actions')
+      : emptyActionsError(t, custom, errors.actions);
+  const replyNote = (item: Record<string, unknown>) =>
+    isEveryMessageReply(item)
+      ? t('mailRules.builder.replyEveryMessage', 'With 0 days between replies, every message gets a reply.')
+      : undefined;
   const changeExceptions = (next: unknown) => {
     if (custom.exceptions.length > 0 && listEntries(next).length === 0) exceptionsButton.current?.focus();
     set('exceptions', next);
@@ -261,7 +266,16 @@ export function RuleBuilderRow({ data: body, errors, readOnly, onFieldChange: se
           itemLabel={actionLabel}
           addLabel={t('mailRules.builder.addAction', 'Add action')}
           disabledVariants={disabledActions}
+          itemNote={replyNote}
         />
+        {custom.actions.length === 0 && custom.stopProcessing && (
+          <p className="text-[12.5px] text-muted-foreground">
+            {t(
+              'mailRules.builder.onlyStop',
+              'Without actions, a matching message only stops later rules from running.',
+            )}
+          </p>
+        )}
         <FieldError id={actionsErrorId} error={actionsError} />
       </Step>
 
