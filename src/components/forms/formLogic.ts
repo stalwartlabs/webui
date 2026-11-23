@@ -495,6 +495,18 @@ export function buildSections(
   return sections;
 }
 
+export function withoutSectionTitles(
+  sections: RenderableSection[],
+  fieldNames: readonly string[] | undefined,
+): RenderableSection[] {
+  if (!fieldNames || fieldNames.length === 0) return sections;
+  return sections.map((section) =>
+    section.title && section.fields.some(({ formField }) => fieldNames.includes(formField.name))
+      ? { ...section, title: undefined }
+      : section,
+  );
+}
+
 export function collectFetchProperties(schema: Schema, view: ResolvedView, viewName: string): string[] {
   const { object, resolvedSchema } = view;
   const names = new Set<string>(['id']);

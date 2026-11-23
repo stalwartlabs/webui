@@ -17,34 +17,32 @@ import { FieldControl } from '@/components/forms/widgets/FieldControl';
 import { embeddedEntries, resolveEmbedded, switchVariantValues } from '@/lib/embeddedSchema';
 import { formatList } from '@/lib/format';
 import { buildEmbeddedDefaults, buildNewObjectValue } from '@/lib/schemaResolver';
-import { useRuleAccountId } from '../account';
 import {
   appendItem,
   isInlineField,
+  KEYWORD_TEST_SCHEMA,
+  KEYWORDS_FIELD,
   listEntries,
-  MAILBOX_FIELD,
-  MAILBOX_SCHEMA,
   removeItem,
   replaceItem,
+  type ListItems,
 } from '../builder';
-import { MailboxPicker } from './MailboxPicker';
+import { KeywordInput } from './KeywordInput';
+import { RuleFieldRow } from './RuleFieldRow';
 
 const NO_MISSING: ReadonlySet<string> = new Set();
 
-interface RuleItemListProps {
+export interface RuleItemListProps {
   name: string;
   objectName: string;
   value: unknown;
-  onChange: (value: unknown) => void;
+  onChange: (value: ListItems) => void;
   readOnly: boolean;
   invalid: boolean;
-  minItems?: number;
   maxItems?: number;
-  canAddMore?: boolean;
   itemLabel: (n: number) => string;
   addLabel: string;
-  disabledVariants?: ReadonlyMap<string, string>;
-  itemNote?: (item: Record<string, unknown>) => string | undefined;
+  joiner?: string;
 }
 
 interface RuleItemProps {
@@ -56,26 +54,13 @@ interface RuleItemProps {
   onRemove: (() => void) | null;
   readOnly: boolean;
   invalid: boolean;
-  disabledVariants?: ReadonlyMap<string, string>;
-  note?: string;
+  joiner?: string;
 }
 
-function RuleItem({
-  objectName,
-  itemKey,
-  item,
-  label,
-  onChange,
-  onRemove,
-  readOnly,
-  invalid,
-  disabledVariants,
-  note,
-}: RuleItemProps) {
+function RuleItem({ objectName, itemKey, item, label, onChange, onRemove, readOnly, invalid, joiner }: RuleItemProps) {
   const { t } = useTranslation();
   const { schema, idPrefix, mode, baseline } = useFormContext();
   const scope = useFieldScope();
-  const accountId = useRuleAccountId();
   const [initial, setInitial] = useState({ baseline, item });
   if (initial.baseline !== baseline) setInitial({ baseline, item });
   const resolved = resolveEmbedded(schema, objectName, item);
@@ -99,66 +84,55 @@ function RuleItem({
   };
 
   return (
-    <li className="rounded-xl bg-card px-3 py-2.5 shadow-tile" data-testid="mail-rule-item">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={variant} onValueChange={changeVariant} disabled={readOnly}>
-          <SelectTrigger
-            id={fieldIds(idPrefix, [...path, '@type']).inputId}
-            aria-label={label}
-            className="min-w-0 flex-1 gap-2 sm:min-w-56 sm:max-w-sm sm:flex-none"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(resolved.variants ?? []).map((option) => {
-              const reason = option.name !== variant ? disabledVariants?.get(option.name) : undefined;
-              return (
-                <SelectItem key={option.name} value={option.name} disabled={!!reason}>
-                  {reason ? (
-                    <span className="flex flex-col">
-                      <span>{option.label}</span>
-                      <span className="text-xs text-muted-foreground">{reason}</span>
-                    </span>
-                  ) : (
-                    option.label
-                  )}
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-        {inline.map(({ formField, field }) => {
-          const ids = fieldIds(idPrefix, [...path, formField.name]);
-          const fieldValue = item[formField.name];
-          const setValue = (next: unknown) => onChange({ ...item, [formField.name]: next });
-          const isMissing = missing.has(formField.name);
-          const control = {
-            id: ids.inputId,
-            'aria-label': `${label}: ${formField.label}`,
-            'aria-invalid': isMissing || undefined,
-            'aria-describedby': isMissing ? itemErrorId : undefined,
-          };
-          const isMailbox = schemaName === MAILBOX_SCHEMA && formField.name === MAILBOX_FIELD;
-          return (
-            <div
-              key={formField.name}
-              className="order-2 flex min-w-0 flex-1 basis-full items-center gap-2 sm:order-none sm:basis-40"
+    <li data-testid="mail-rule-item">
+      {joiner && (
+        <p className="py-0.5 pl-3 text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {joiner}
+        </p>
+      )}
+      <div className="rounded-xl bg-card px-3 py-2.5 shadow-tile">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={variant} onValueChange={changeVariant} disabled={readOnly}>
+            <SelectTrigger
+              id={fieldIds(idPrefix, [...path, '@type']).inputId}
+              aria-label={label}
+              className="min-w-0 flex-1 gap-2 sm:min-w-56 sm:max-w-sm sm:flex-none"
             >
-              {!isMailbox && field.type.type !== 'enum' && (
-                <label htmlFor={ids.inputId} className="shrink-0 text-[12.5px] text-muted-foreground">
-                  {formField.label}
-                </label>
-              )}
-              <div className="min-w-0 flex-1">
-                {isMailbox ? (
-                  <MailboxPicker
-                    accountId={accountId}
-                    value={fieldValue}
-                    onChange={setValue}
-                    readOnly={readOnly}
-                    control={control}
-                  />
-                ) : (
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(resolved.variants ?? []).map((option) => (
+                <SelectItem key={option.name} value={option.name}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {inline.map(({ formField, field }) => {
+            const ids = fieldIds(idPrefix, [...path, formField.name]);
+            const fieldValue = item[formField.name];
+            const setValue = (next: unknown) => onChange({ ...item, [formField.name]: next });
+            const isMissing = missing.has(formField.name);
+            const control = {
+              id: ids.inputId,
+              'aria-label': t('mailRules.builder.itemField', '{{item}}: {{field}}', {
+                item: label,
+                field: formField.label,
+              }),
+              'aria-invalid': isMissing || undefined,
+              'aria-describedby': isMissing ? itemErrorId : undefined,
+            };
+            return (
+              <div
+                key={formField.name}
+                className="order-2 flex min-w-0 flex-1 basis-full items-center gap-2 sm:order-none sm:basis-40"
+              >
+                {field.type.type !== 'enum' && (
+                  <label htmlFor={ids.inputId} className="shrink-0 text-[12.5px] text-muted-foreground">
+                    {formField.label}
+                  </label>
+                )}
+                <div className="min-w-0 flex-1">
                   <FieldScopeProvider name={itemKey} readOnly={readOnly}>
                     <FieldControl
                       type={field.type}
@@ -170,53 +144,56 @@ function RuleItem({
                       control={control}
                     />
                   </FieldScopeProvider>
-                )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-        {onRemove && (
-          <Button
-            type="button"
-            variant="ghost-danger"
-            size="icon-sm"
-            className="order-1 ml-auto shrink-0 sm:order-none"
-            onClick={onRemove}
-            aria-label={t('mailRules.removeItem', 'Remove {{label}}', { label })}
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-          </Button>
+            );
+          })}
+          {onRemove && (
+            <Button
+              type="button"
+              variant="ghost-danger"
+              size="icon-sm"
+              className="order-1 ml-auto shrink-0 sm:order-none"
+              onClick={onRemove}
+              aria-label={t('mailRules.removeItem', 'Remove {{label}}', { label })}
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+            </Button>
+          )}
+        </div>
+        {missingInline.length > 0 && (
+          <div className="mt-1.5">
+            <FieldError
+              id={itemErrorId}
+              error={t('mailRules.builder.missingFields', 'Fill in {{fields}}.', {
+                fields: formatList(missingInline.map(({ formField }) => formField.label)),
+              })}
+            />
+          </div>
+        )}
+        {block.length > 0 && (
+          <FieldScopeProvider name={itemKey} readOnly={readOnly}>
+            <EnclosingSchemaContext value={resolved.schemaName}>
+              <div className="@container mt-1 divide-y divide-border [&>[data-slot=field-row]]:py-3">
+                {block.map(({ formField, field }) => {
+                  const row = {
+                    field,
+                    formField,
+                    value: item[formField.name],
+                    onChange: (next: unknown) => onChange({ ...item, [formField.name]: next }),
+                    error: missing.has(formField.name) ? requiredMessage : undefined,
+                  };
+                  return schemaName === KEYWORD_TEST_SCHEMA && formField.name === KEYWORDS_FIELD ? (
+                    <RuleFieldRow key={formField.name} {...row} Edit={KeywordInput} />
+                  ) : (
+                    <FieldRow key={formField.name} {...row} />
+                  );
+                })}
+              </div>
+            </EnclosingSchemaContext>
+          </FieldScopeProvider>
         )}
       </div>
-      {missingInline.length > 0 && (
-        <div className="mt-1.5">
-          <FieldError
-            id={itemErrorId}
-            error={t('mailRules.builder.missingFields', 'Fill in {{fields}}.', {
-              fields: formatList(missingInline.map(({ formField }) => formField.label)),
-            })}
-          />
-        </div>
-      )}
-      {note && <p className="mt-1.5 text-[12.5px] text-muted-foreground">{note}</p>}
-      {block.length > 0 && (
-        <FieldScopeProvider name={itemKey} readOnly={readOnly}>
-          <EnclosingSchemaContext value={resolved.schemaName}>
-            <div className="@container mt-1 divide-y divide-border [&>[data-slot=field-row]]:py-3">
-              {block.map(({ formField, field }) => (
-                <FieldRow
-                  key={formField.name}
-                  field={field}
-                  formField={formField}
-                  value={item[formField.name]}
-                  onChange={(next) => onChange({ ...item, [formField.name]: next })}
-                  error={missing.has(formField.name) ? requiredMessage : undefined}
-                />
-              ))}
-            </div>
-          </EnclosingSchemaContext>
-        </FieldScopeProvider>
-      )}
     </li>
   );
 }
@@ -228,35 +205,30 @@ export function RuleItemList({
   onChange,
   readOnly,
   invalid,
-  minItems,
   maxItems,
-  canAddMore = true,
   itemLabel,
   addLabel,
-  disabledVariants,
-  itemNote,
+  joiner,
 }: RuleItemListProps) {
   const { schema } = useFormContext();
   const entries = listEntries(value);
-  const canRemove = !readOnly && (minItems == null || entries.length > minItems);
-  const canAdd = !readOnly && canAddMore && (maxItems == null || entries.length < maxItems);
+  const canAdd = !readOnly && (maxItems == null || entries.length < maxItems);
   return (
     <FieldScopeProvider name={name} readOnly={readOnly}>
       {entries.length > 0 && (
-        <ol className="space-y-2">
+        <ol className="space-y-1">
           {entries.map(([key, item], index) => (
             <RuleItem
               key={key}
+              joiner={index > 0 ? joiner : undefined}
               objectName={objectName}
               itemKey={key}
               item={item}
               label={itemLabel(index + 1)}
               onChange={(next) => onChange(replaceItem(value, key, next))}
-              onRemove={canRemove ? () => onChange(removeItem(value, key)) : null}
+              onRemove={readOnly ? null : () => onChange(removeItem(value, key))}
               readOnly={readOnly}
               invalid={invalid}
-              disabledVariants={disabledVariants}
-              note={itemNote?.(item)}
             />
           ))}
         </ol>

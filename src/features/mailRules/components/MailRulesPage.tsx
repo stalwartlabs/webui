@@ -15,7 +15,7 @@ import { errorMessage } from '@/lib/jmapErrors';
 import { useSchemaStore } from '@/stores/schemaStore';
 import type { PageProps } from '@/extensions/types';
 import { useRuleAccountId } from '../account';
-import { mailboxNameResolver } from '../mailboxes';
+import { mailboxNamer } from '../mailboxes';
 import { useMailboxOptions, useMailRules } from '../queries';
 import { CustomRuleList } from './CustomRuleList';
 
@@ -41,7 +41,7 @@ export function MailRulesPage({ viewName, section }: PageProps) {
   const summary = {
     t,
     schema,
-    mailboxName: mailboxes.status === 'ready' ? mailboxNameResolver(mailboxes.options) : undefined,
+    mailboxName: mailboxNamer(t, mailboxes.status === 'ready' ? mailboxes.options : undefined),
   };
 
   return (

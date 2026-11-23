@@ -7,58 +7,74 @@
 import { useTranslation } from 'react-i18next';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BufferedInput } from '@/components/forms/widgets/BufferedInputs';
-import type { ControlProps } from '@/components/forms/widgets/types';
+import { RemovablePill } from '@/components/forms/widgets/RemovablePill';
+import type { WidgetProps } from '@/components/forms/widgets/types';
+import { useRuleAccountId } from '../account';
+import { toSet } from '../builder';
+import { mailboxNamer } from '../mailboxes';
+import { setValues } from '../model';
 import { useMailboxOptions } from '../queries';
 
 const INDENT_REM = 0.75;
 
-interface MailboxPickerProps {
-  accountId: string | null;
-  value: unknown;
-  onChange: (value: string) => void;
-  readOnly: boolean;
-  control: ControlProps;
-}
-
-export function MailboxPicker({ accountId, value, onChange, readOnly, control }: MailboxPickerProps) {
+export function MailboxPicker({ type, value, onChange, readOnly, control }: WidgetProps) {
   const { t } = useTranslation();
-  const mailboxes = useMailboxOptions(accountId);
-  const current = typeof value === 'string' ? value : '';
+  const mailboxes = useMailboxOptions(useRuleAccountId());
+  const ids = setValues(value);
+  const isFull = type.type === 'set' && type.maxItems != null && ids.length >= type.maxItems;
+  const nameOf = mailboxNamer(t, mailboxes.status === 'ready' ? mailboxes.options : undefined);
+  const add = (entered: string) => {
+    const id = entered.trim();
+    if (id && !ids.includes(id)) onChange(toSet([...ids, id]));
+  };
+  const placeholder =
+    ids.length > 0
+      ? t('mailRules.addMailbox', 'Add another mailbox')
+      : t('mailRules.chooseMailbox', 'Choose a mailbox');
 
-  if (mailboxes.status !== 'ready') {
-    return (
-      <BufferedInput
-        {...control}
-        value={current}
-        onCommit={onChange}
-        readOnly={readOnly}
-        disabled={mailboxes.status === 'loading'}
-        placeholder={t('mailRules.mailboxId', 'Mailbox id')}
-      />
-    );
-  }
-
-  const { options } = mailboxes;
-  const selected = options.find((option) => option.id === current);
   return (
-    <Select value={current} onValueChange={onChange} disabled={readOnly}>
-      <SelectTrigger {...control} className="w-full">
-        <SelectValue placeholder={t('mailRules.chooseMailbox', 'Choose a mailbox')}>
-          {selected ? selected.path.join(' / ') : undefined}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {current && !selected && (
-          <SelectItem value={current}>
-            {t('mailRules.unknownMailbox', 'Unknown mailbox ({{id}})', { id: current })}
-          </SelectItem>
-        )}
-        {options.map((option) => (
-          <SelectItem key={option.id} value={option.id} textValue={option.path.join(' / ')}>
-            <span style={{ paddingInlineStart: `${option.depth * INDENT_REM}rem` }}>{option.name}</span>
-          </SelectItem>
+    <div className="space-y-2">
+      {ids.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {ids.map((id) => (
+            <RemovablePill
+              key={id}
+              label={nameOf(id)}
+              onRemove={readOnly ? undefined : () => onChange(toSet(ids.filter((key) => key !== id)))}
+            />
+          ))}
+        </div>
+      )}
+      {!readOnly &&
+        !isFull &&
+        (mailboxes.status === 'ready' ? (
+          <Select value="" onValueChange={add}>
+            <SelectTrigger {...control} className="w-full">
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {mailboxes.options.map((option) => (
+                <SelectItem
+                  key={option.id}
+                  value={option.id}
+                  textValue={option.path.join(' / ')}
+                  disabled={ids.includes(option.id)}
+                >
+                  <span style={{ paddingInlineStart: `${option.depth * INDENT_REM}rem` }}>{option.name}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <BufferedInput
+            key={ids.length}
+            {...control}
+            value=""
+            onCommit={add}
+            disabled={mailboxes.status === 'loading'}
+            placeholder={t('mailRules.mailboxId', 'Mailbox id')}
+          />
         ))}
-      </SelectContent>
-    </Select>
+    </div>
   );
 }

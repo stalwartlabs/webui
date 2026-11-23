@@ -4,9 +4,13 @@
  * SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-SEL
  */
 
+import type { TFunction } from 'i18next';
 import type { JmapObject } from '@/services/jmap/client';
 
 export const MAILBOX_PROPERTIES = ['id', 'name', 'parentId', 'role', 'sortOrder'];
+
+const TRASH_MAILBOX_ID = 'b';
+const JUNK_MAILBOX_ID = 'c';
 
 export interface MailboxOption {
   id: string;
@@ -72,4 +76,16 @@ export function buildMailboxOptions(list: readonly JmapObject[]): MailboxOption[
 export function mailboxNameResolver(options: readonly MailboxOption[]): (id: string) => string | undefined {
   const byId = new Map(options.map((option) => [option.id, option.path.join(' / ')]));
   return (id) => byId.get(id);
+}
+
+export function fallbackMailboxName(t: TFunction, id: string): string {
+  if (id === TRASH_MAILBOX_ID) return t('mailRules.trashMailbox', 'Trash');
+  if (id === JUNK_MAILBOX_ID) return t('mailRules.junkMailbox', 'Junk');
+  return id;
+}
+
+export function mailboxNamer(t: TFunction, options: readonly MailboxOption[] | undefined): (id: string) => string {
+  if (!options) return (id) => fallbackMailboxName(t, id);
+  const known = mailboxNameResolver(options);
+  return (id) => known(id) ?? t('mailRules.unknownMailbox', 'Unknown mailbox ({{id}})', { id });
 }

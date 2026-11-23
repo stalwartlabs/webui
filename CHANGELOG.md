@@ -2,10 +2,16 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [2.1.1] - 2026-11-23
 
 ### Added
-- Mail Rules editor: size ranges, rules that apply only while the vacation response is in effect, stop-only rules, and replies sent to every message.
+- Mail Rules editor: rules that apply only while the vacation response is in effect, stop-only rules, and replies sent to every message.
+
+### Changed
+- Mail Rules editor follows the new rule format: conditions that must all match, alternatives of which at least one must match, and exceptions, each explained in plain words.
+- Rule page with a summary of what the rule does, a Conditions step and an Actions step. Each action appears at most once, as a card added from grouped buttons.
+- Trash and Junk are ordinary move and copy targets, and read, flagged and not spam are shown by name instead of as keywords.
+- The rule summary is fully translatable: whole-sentence templates, plural forms and lists joined for the user's locale.
 
 ## [2.1.0] - 2026-11-18
 

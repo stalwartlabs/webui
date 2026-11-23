@@ -43,6 +43,7 @@ import {
   validateRequired,
   validatedFieldNames,
   VARIANT_FIELD,
+  withoutSectionTitles,
   type FieldErrors,
   type FieldValues,
 } from '@/components/forms/formLogic';
@@ -102,6 +103,7 @@ export interface FieldRenderProps {
 
 export interface FieldOverrides {
   hidden?: readonly string[];
+  untitled?: readonly string[];
   render?: Readonly<Record<string, ComponentType<FieldRenderProps>>>;
   validate?: (data: FieldValues) => FieldErrors;
 }
@@ -110,12 +112,13 @@ export interface DynamicFormOptions {
   accountId?: string;
   fieldOverrides?: FieldOverrides;
   createValues?: FieldValues;
+  showCreatedValues?: boolean;
 }
 
 export function useDynamicForm(
   viewName: string,
   objectId: string | null,
-  { accountId, fieldOverrides, createValues }: DynamicFormOptions = {},
+  { accountId, fieldOverrides, createValues, showCreatedValues = true }: DynamicFormOptions = {},
 ) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -182,7 +185,7 @@ export function useDynamicForm(
   }
   const form = sch?.type === 'multiple' ? combineForms(parentForm, variantForm) : variantForm;
   const hidden = new Set(fieldOverrides?.hidden);
-  const sections = buildSections(form, fields, mode, hidden);
+  const sections = withoutSectionTitles(buildSections(form, fields, mode, hidden), fieldOverrides?.untitled);
 
   const loading = mode === 'edit' && objectQuery.fetchStatus !== 'idle' && !objectQuery.isFetchedAfterMount;
   const loadError =
@@ -304,7 +307,7 @@ export function useDynamicForm(
           for (const [key, value] of Object.entries(created)) {
             if (!NOISY_CREATED_KEYS.has(key)) extras[key] = value;
           }
-          if (Object.keys(extras).length > 0) {
+          if (showCreatedValues && Object.keys(extras).length > 0) {
             dispatch({ type: 'created', result: { id: String(created.id), values: extras } });
           } else {
             toast({ title: t('form.createdSuccess', 'Created successfully'), variant: 'success' });

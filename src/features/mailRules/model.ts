@@ -11,7 +11,8 @@ import type { JmapObject } from '@/services/jmap/client';
 
 export const MAIL_RULE_OBJECT = 'x:MailRule';
 export const MAIL_RULE_CONDITION_OBJECT = 'x:MailRuleCondition';
-export const MAIL_RULE_ACTION_OBJECT = 'x:MailRuleAction';
+export const MAIL_RULE_CONDITIONS_OBJECT = 'x:MailRuleConditions';
+export const MAIL_RULE_ACTIONS_OBJECT = 'x:MailRuleActions';
 
 const FORWARD_PERMISSIONS = ['jmapSieveScriptCreate', 'jmapSieveScriptUpdate', 'sievePutScript'] as const;
 
@@ -23,30 +24,43 @@ export interface MailRule {
   body: Record<string, unknown>;
 }
 
-export interface CustomRuleBody {
-  matchAll: boolean;
-  conditions: Record<string, unknown>[];
-  exceptions: Record<string, unknown>[];
-  actions: Record<string, unknown>[];
+export type ConditionGroup = 'matchAll' | 'matchAny' | 'matchNone';
+
+export type RuleConditions = Record<ConditionGroup, Record<string, unknown>[]>;
+
+export interface RuleActions {
+  addKeywords: string[];
+  removeKeywords: string[];
+  clearKeywords: boolean;
+  setImportance: string | null;
+  redirect: Record<string, unknown> | null;
+  reply: Record<string, unknown> | null;
+  copyTo: string[];
+  moveTo: string[];
+  discard: boolean;
+  reject: Record<string, unknown> | null;
   stopProcessing: boolean;
-  onlyWhenAway: boolean;
-  timeZone: string | null;
 }
 
-export type RuleIssue =
-  | 'rejectNotAlone'
-  | 'rejectNeedsAuthentication'
-  | 'forwardingNotAllowed'
-  | 'scheduleTooManySlots'
-  | 'sizeInvalid'
-  | 'sizeRangeEmpty'
-  | 'sizeRangeInverted';
+export interface CustomRuleBody {
+  conditions: RuleConditions;
+  actions: RuleActions;
+}
 
-export const MAX_SCHEDULE_SLOTS = 14;
+export type KeywordSet = 'addKeywords' | 'removeKeywords';
+
+export const FLAG_ACTIONS = {
+  markRead: { set: 'addKeywords', keyword: '$seen' },
+  flag: { set: 'addKeywords', keyword: '$flagged' },
+  clearFlag: { set: 'removeKeywords', keyword: '$flagged' },
+  markNotJunk: { set: 'addKeywords', keyword: '$notjunk' },
+} as const satisfies Record<string, { set: KeywordSet; keyword: string }>;
+
+export type FlagAction = keyof typeof FLAG_ACTIONS;
+
+export type RuleIssue = 'rejectNotAlone' | 'keywordConflict' | 'forwardingNotAllowed' | 'sizeInvalid';
+
 export const MAX_SIZE_KB = 2 ** 32;
-const SCHEDULE_CONDITION = 'Schedule';
-const REPLY_ACTION = 'Reply';
-export const REJECT_ACTION = 'Reject';
 
 export function variantType(value: unknown): string | null {
   if (!isRecord(value)) return null;
@@ -156,91 +170,108 @@ export function reorderPositions(
   return changes;
 }
 
-export function parseCustomBody(body: Record<string, unknown>): CustomRuleBody {
-  const list = (value: unknown) => jmapMapToArray<unknown>(value).filter(isRecord);
-  const conditions = list(body.conditions);
+export function newRuleValues(position: number): JmapObject {
   return {
-    matchAll: conditions.length < 2 || body.matchAll !== false,
-    conditions,
-    exceptions: list(body.exceptions),
-    actions: list(body.actions),
-    stopProcessing: body.stopProcessing === true,
-    onlyWhenAway: body.onlyWhenAway === true,
-    timeZone: typeof body.timeZone === 'string' && body.timeZone !== '' ? body.timeZone : null,
+    position,
+    conditions: { matchAll: {}, matchAny: {}, matchNone: {} },
+    actions: {
+      addKeywords: {},
+      removeKeywords: {},
+      clearKeywords: false,
+      setImportance: null,
+      redirect: null,
+      reply: null,
+      copyTo: {},
+      moveTo: {},
+      discard: false,
+      reject: null,
+      stopProcessing: false,
+    },
   };
 }
 
-function hasVariant(items: readonly Record<string, unknown>[], type: string): boolean {
-  return items.some((item) => variantType(item) === type);
+function parseConditions(value: unknown): RuleConditions {
+  const groups = isRecord(value) ? value : {};
+  const list = (group: ConditionGroup) => jmapMapToArray<unknown>(groups[group]).filter(isRecord);
+  return { matchAll: list('matchAll'), matchAny: list('matchAny'), matchNone: list('matchNone') };
 }
 
-export function hasScheduleCondition(custom: CustomRuleBody): boolean {
-  return hasVariant(custom.conditions, SCHEDULE_CONDITION) || hasVariant(custom.exceptions, SCHEDULE_CONDITION);
+export function parseActions(value: unknown): RuleActions {
+  const actions = isRecord(value) ? value : {};
+  const { setImportance, redirect, reply, reject } = actions;
+  return {
+    addKeywords: setValues(actions.addKeywords),
+    removeKeywords: setValues(actions.removeKeywords),
+    clearKeywords: actions.clearKeywords === true,
+    setImportance: typeof setImportance === 'string' && setImportance !== '' ? setImportance : null,
+    redirect: isRecord(redirect) ? redirect : null,
+    reply: isRecord(reply) ? reply : null,
+    copyTo: setValues(actions.copyTo),
+    moveTo: setValues(actions.moveTo),
+    discard: actions.discard === true,
+    reject: isRecord(reject) ? reject : null,
+    stopProcessing: actions.stopProcessing === true,
+  };
 }
 
-export function mergedScheduleOverflow(items: readonly Record<string, unknown>[]): boolean {
-  let run = 0;
-  for (const item of items) {
-    if (variantType(item) !== SCHEDULE_CONDITION) {
-      run = 0;
-      continue;
-    }
-    run += jmapMapToArray<unknown>(item.slots).length;
-    if (run > MAX_SCHEDULE_SLOTS) return true;
+export function parseCustomBody(body: Record<string, unknown>): CustomRuleBody {
+  return { conditions: parseConditions(body.conditions), actions: parseActions(body.actions) };
+}
+
+export function hasFlag(actions: RuleActions, flag: FlagAction): boolean {
+  const { set, keyword } = FLAG_ACTIONS[flag];
+  return actions[set].includes(keyword);
+}
+
+export function otherKeywords(actions: RuleActions, set: KeywordSet): string[] {
+  const flags = new Set<string>();
+  for (const action of Object.values(FLAG_ACTIONS)) {
+    if (action.set === set) flags.add(action.keyword);
   }
-  return false;
+  return actions[set].filter((keyword) => !flags.has(keyword));
 }
 
-function kilobytes(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function isSizeOutOfRange(value: number | null): boolean {
-  return value !== null && (value < 1 || value > MAX_SIZE_KB);
-}
-
-export function sizeIssue(condition: Record<string, unknown>): RuleIssue | null {
-  switch (variantType(condition)) {
-    case 'SizeOver':
-    case 'SizeUnder':
-      return isSizeOutOfRange(kilobytes(condition.kilobytes)) ? 'sizeInvalid' : null;
-    case 'SizeBetween': {
-      const min = kilobytes(condition.minKilobytes);
-      const max = kilobytes(condition.maxKilobytes);
-      if (isSizeOutOfRange(min) || isSizeOutOfRange(max)) return 'sizeInvalid';
-      if (min === null && max === null) return 'sizeRangeEmpty';
-      return min !== null && max !== null && min > max ? 'sizeRangeInverted' : null;
-    }
-    default:
-      return null;
-  }
-}
-
-export function isEveryMessageReply(action: Record<string, unknown>): boolean {
-  return variantType(action) === REPLY_ACTION && action.days === 0;
-}
-
-export function needsAction(custom: CustomRuleBody): boolean {
-  return custom.actions.length === 0 && !custom.stopProcessing;
-}
-
-export function hasRejectAction(custom: CustomRuleBody): boolean {
-  return hasVariant(custom.actions, REJECT_ACTION);
-}
-
-export function isRejectAllowed(custom: CustomRuleBody): boolean {
-  return custom.matchAll && hasVariant(custom.conditions, 'SenderAuthenticated');
-}
-
-function redirectTargets(custom: CustomRuleBody): number {
-  return custom.actions.reduce(
-    (total, action) => total + (variantType(action) === 'Redirect' ? setValues(action.addresses).length : 0),
-    0,
+export function hasOtherAction(actions: RuleActions): boolean {
+  return (
+    actions.addKeywords.length > 0 ||
+    actions.removeKeywords.length > 0 ||
+    actions.clearKeywords ||
+    actions.setImportance !== null ||
+    actions.redirect !== null ||
+    actions.reply !== null ||
+    actions.copyTo.length > 0 ||
+    actions.moveTo.length > 0 ||
+    actions.discard
   );
 }
 
+export function needsAction(actions: RuleActions): boolean {
+  return !actions.stopProcessing && actions.reject === null && !hasOtherAction(actions);
+}
+
+export function isEveryMessageReply(reply: Record<string, unknown> | null): boolean {
+  return reply?.days === 0;
+}
+
+function hasKeywordConflict(actions: RuleActions): boolean {
+  const removed = new Set(actions.removeKeywords);
+  return actions.addKeywords.some((keyword) => removed.has(keyword));
+}
+
+export function sizeIssue(condition: Record<string, unknown>): RuleIssue | null {
+  const type = variantType(condition);
+  if (type !== 'SizeOver' && type !== 'SizeUnder') return null;
+  const { kilobytes } = condition;
+  if (typeof kilobytes !== 'number' || !Number.isFinite(kilobytes)) return null;
+  return kilobytes < 1 || kilobytes > MAX_SIZE_KB ? 'sizeInvalid' : null;
+}
+
+function redirectTargets(actions: RuleActions): number {
+  return setValues(actions.redirect?.addresses).length;
+}
+
 export function forwardingTargets(body: Record<string, unknown>): number {
-  return redirectTargets(parseCustomBody(body));
+  return redirectTargets(parseActions(body.actions));
 }
 
 export function canForward(checkers: Pick<PermissionCheckers, 'hasPermission'>): boolean {
@@ -252,21 +283,13 @@ export function ruleIssues(
   checkers: Pick<PermissionCheckers, 'hasPermission'>,
 ): RuleIssue[] {
   const issues: RuleIssue[] = [];
-  const custom = parseCustomBody(rule.body);
-  if (hasRejectAction(custom)) {
-    if (custom.actions.length > 1) issues.push('rejectNotAlone');
-    if (!isRejectAllowed(custom)) issues.push('rejectNeedsAuthentication');
+  const { conditions, actions } = parseCustomBody(rule.body);
+  if (actions.reject && hasOtherAction(actions)) issues.push('rejectNotAlone');
+  if (hasKeywordConflict(actions)) issues.push('keywordConflict');
+  if (Object.values(conditions).some((items) => items.some((condition) => sizeIssue(condition) !== null))) {
+    issues.push('sizeInvalid');
   }
-  if (mergedScheduleOverflow(custom.exceptions) || (!custom.matchAll && mergedScheduleOverflow(custom.conditions))) {
-    issues.push('scheduleTooManySlots');
-  }
-  for (const items of [custom.conditions, custom.exceptions]) {
-    for (const condition of items) {
-      const issue = sizeIssue(condition);
-      if (issue && !issues.includes(issue)) issues.push(issue);
-    }
-  }
-  if (rule.isEnabled && redirectTargets(custom) > 0 && !canForward(checkers)) {
+  if (rule.isEnabled && redirectTargets(actions) > 0 && !canForward(checkers)) {
     issues.push('forwardingNotAllowed');
   }
   return issues;

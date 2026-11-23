@@ -14,13 +14,13 @@ import type { FieldOverrides } from '@/components/forms/useDynamicForm';
 import type { ViewRenderers } from '@/components/views/DynamicView';
 import type { PageProps } from '@/extensions/types';
 import { useRuleAccountId } from '../account';
-import { needsAction, nextRulePosition, parseCustomBody } from '../model';
+import { needsAction, newRuleValues, nextRulePosition, parseActions } from '../model';
 import { useMailRules } from '../queries';
 import { actionRequiredMessage } from '../summary';
 import { RuleBuilderRow, RuleSummaryRow } from './RuleBuilder';
 
 const RULE_ANCHOR = 'actions';
-const RULE_FIELDS = ['matchAll', 'conditions', 'exceptions', 'stopProcessing', 'onlyWhenAway', 'timeZone'] as const;
+const ABSORBED_FIELD = 'conditions';
 
 function Omitted() {
   return null;
@@ -28,8 +28,9 @@ function Omitted() {
 
 const FIELD_OVERRIDES: FieldOverrides = {
   hidden: ['position'],
+  untitled: [RULE_ANCHOR],
   render: {
-    ...Object.fromEntries(RULE_FIELDS.map((name) => [name, Omitted])),
+    [ABSORBED_FIELD]: Omitted,
     [RULE_ANCHOR]: RuleBuilderRow,
   },
 };
@@ -39,12 +40,12 @@ function useFieldOverrides(): FieldOverrides {
   return {
     ...FIELD_OVERRIDES,
     validate: (data): FieldErrors =>
-      needsAction(parseCustomBody(data)) ? { [RULE_ANCHOR]: actionRequiredMessage(t) } : {},
+      needsAction(parseActions(data.actions)) ? { [RULE_ANCHOR]: actionRequiredMessage(t) } : {},
   };
 }
 
 const VIEW_RENDERERS: ViewRenderers = {
-  ...Object.fromEntries(RULE_FIELDS.map((name) => [name, Omitted])),
+  [ABSORBED_FIELD]: Omitted,
   [RULE_ANCHOR]: RuleSummaryRow,
 };
 
@@ -74,7 +75,8 @@ function CreateRuleForm({
       objectId={null}
       accountId={accountId}
       fieldOverrides={fieldOverrides}
-      createValues={{ position: nextRulePosition(rules.data) }}
+      createValues={newRuleValues(nextRulePosition(rules.data))}
+      showCreatedValues={false}
     />
   );
 }

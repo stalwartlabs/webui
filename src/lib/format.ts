@@ -235,7 +235,10 @@ export function localeClock(): LocaleClock {
 
 const listFormats = new Map<string, Intl.ListFormat>();
 
-export function formatList(items: readonly string[], type: 'conjunction' | 'disjunction' = 'conjunction'): string {
+export function formatList(
+  items: readonly string[],
+  type: 'conjunction' | 'disjunction' | 'unit' = 'conjunction',
+): string {
   const locale = getFormatLocale();
   const key = `${locale}|${type}`;
   let fmt = listFormats.get(key);
